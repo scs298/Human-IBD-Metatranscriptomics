@@ -1,0 +1,45 @@
+sample,disease_detailed,disease,sex,age,population,source,activity,treatment
+Hc1,HC,HC,F,60,adult,colon,NA,NA
+Hc2,HC,HC,M,60,adult,colon,NA,NA
+Hc3,HC,HC,M,71,adult,colon,NA,NA
+Hc4,HC,HC,F,61,adult,colon,NA,NA
+Hc5,HC,HC,M,61,adult,colon,NA,NA
+Hc6,HC,HC,F,61,adult,colon,NA,NA
+Hc7,HC,HC,M,61,adult,colon,NA,NA
+Hc8,HC,HC,M,61,adult,colon,NA,NA
+Hc9,HC,HC,F,61,adult,colon,NA,NA
+Hc10,HC,HC,F,17,adult,colon,NA,NA
+Hc11,HC,HC,F,24,adult,colon,NA,NA
+Hc12,HC,HC,F,22,adult,colon,NA,NA
+Hc13,HC,HC,M,41,adult,colon,NA,NA
+auCC1,Active CC,CC,F,61,adult,colon,Active,No
+auCC2,Active CC,CC,F,27,adult,colon,Active,No
+auCC3,Active CC,CC,M,73,adult,colon,Active,No
+auCC4,Active CC,CC,F,41,adult,colon,Active,No
+auCC5,Active CC,CC,F,38,adult,colon,Active,No
+auCC6,Active CC,CC,F,79,adult,colon,Active,No
+auCC7,Active CC,CC,F,49,adult,colon,Active,No
+auCC8,Active CC,CC,M,77,adult,colon,Active,No
+auCC9,Active CC,CC,F,86,adult,colon,Active,No
+itCC1,Inactive/Clinical remission CC,CC,F,61,adult,colon,Inactive,budesonide
+itCC2,Inactive/Clinical remission CC,CC,F,27,adult,colon,Inactive,budesonide
+itCC3,Inactive/Clinical remission CC,CC,M,73,adult,colon,Inactive,budesonide
+itCC4,Inactive/Clinical remission CC,CC,F,41,adult,colon,Inactive,budesonide
+itCC5,Inactive/Clinical remission CC,CC,F,38,adult,colon,Inactive,budesonide
+itCC6,Inactive/Clinical remission CC,CC,F,79,adult,colon,Inactive,budesonide
+itCC7,Inactive/Clinical remission CC,CC,F,49,adult,colon,Inactive,budesonide
+itCC8,Inactive/Clinical remission CC,CC,M,77,adult,colon,Inactive,budesonide
+itCC9,Inactive/Clinical remission CC,CC,F,86,adult,colon,Inactive,budesonide
+aRCC1,Active CC,CC,F,79,adult,colon,Active,NA
+aRCC2,Active CC,CC,F,65,adult,colon,Active,NA
+aRCC3,Active CC,CC,F,75,adult,colon,Active,NA
+aRCC4,Active CC,CC,F,57,adult,colon,Active,NA
+aRCC5,Active CC,CC,F,55,adult,colon,Active,NA
+aRCC6,Active CC,CC,F,63,adult,colon,Active,NA
+aRCC7,Active CC,CC,F,51,adult,colon,Active,NA
+aRCC8,Active CC,CC,F,25,adult,colon,Active,NA
+aRCC9,Active CC,CC,F,74,adult,colon,Active,NA
+UC1,Active ulcerative colitis,UC,F,19,adult,colon,Active,NA
+UC2,Active ulcerative colitis,UC,F,19,adult,colon,Active,NA
+UC3,Active ulcerative colitis,UC,M,30,adult,colon,Active,NA
+UC4,Active ulcerative colitis,UC,F,21,adult,colon,Active,NA
