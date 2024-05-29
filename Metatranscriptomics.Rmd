@@ -1,0 +1,2388 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+
+#LOAD DATA
+
+```{r}
+#Merge Spain data since normalized data came in separate folders for each sample 
+folder_path <- "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Spain/RAW/"
+
+# List all CSV files in the folder
+files <- list.files(folder_path, pattern = "\\.results$", full.names = TRUE)
+
+# Initialize an empty dataframe to store the merged data
+merged_df <- data.frame()
+
+# Iterate through files and merge based on a common column
+for (file in files) {
+  # Extract file name without extension
+  file_name <- tools::file_path_sans_ext(basename(file))
+  prefix <- sub("^(.*?)_", "\\1", file_name)
+  df <- read.table(file, header = TRUE, sep = '\t')
+  df <- df %>%
+    rename(!!prefix := "TPM")
+  df <- df[, c("gene_id", paste0(prefix))]
+  
+  write.csv(df, file = paste0(folder_path, prefix, "_TPM.csv"), row.names = FALSE)
+  
+}
+
+# List all CSV files in the folder
+files <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE)
+
+# Initialize an empty dataframe to store the merged data
+merged_df <- data.frame()
+
+# Iterate through files and merge based on a common column
+for (file in files) {
+  current_data <- read.csv(file)  # adjust read function based on file format
+  if (nrow(merged_df) == 0) {
+    merged_df <- current_data
+  } else {
+    # Assuming the common column is named "common_column"
+    merged_df <- merge(merged_df, current_data, by = "gene_id", all = TRUE)
+  }
+}
+
+# Print or use the merged dataframe
+#print(merged_df)
+Spain <- merged_df
+```
+
+
+```{r}
+#Merge PROTECT data since normalized data came in separate folders for each sample 
+folder_path <- "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/PROTECT/GSE109142_RAW"
+
+# List all CSV files in the folder
+files <- list.files(folder_path, pattern = "\\.txt$", full.names = TRUE)
+
+# Initialize an empty dataframe to store the merged data
+merged_df <- data.frame()
+
+# Iterate through files and merge based on a common column
+for (file in files) {
+  current_data <- read.table(file, header = TRUE, sep = "\t", stringsAsFactors = FALSE)  # adjust read function based on file format
+  file_name <- tools::file_path_sans_ext(basename(file))
+  colnames(current_data)[2] <- paste(file_name)
+  if (nrow(merged_df) == 0) {
+    merged_df <- current_data
+  } else {
+    # Assuming the common column is named "common_column"
+    merged_df <- merge(merged_df, current_data, by = "Gene", all = TRUE)
+  }
+}
+
+# Print or use the merged dataframe
+print(merged_df)
+PROTECT <- merged_df
+```
+#DONT RUN THIS CHUNK
+```{r}
+#Merge RISK2 data since normalized data came in separate folders for each sample 
+
+directory_path <- "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/RISK2/GSE57945_RAW"
+
+# List all the text files in the directory
+file_list <- list.files(directory_path, pattern = "\\.txt$", full.names = TRUE)
+
+# Initialize an empty df
+dataframes_list <- list()
+
+# Loop through each text file
+for (file in file_list) {
+  # Read the text file
+  df <- read.delim(file, header = FALSE)
+  
+  # Extract the third column
+  column_3 <- df[[3]]
+  
+  # Append the third column to the list of dataframes
+  dataframes_list[[file]] <- column_3
+}
+
+# Combine all the third columns into a single dataframe
+final_dataframe <- do.call(cbind, dataframes_list)
+
+# Rename the columns if needed (optional)
+colnames(final_dataframe) <- paste("File", seq_along(dataframes_list), sep = "")
+
+# Print the final dataframe
+RISK2 <- as.data.frame(final_dataframe)
+
+colnames(RISK2) <- unlist(RISK2[1, ])
+
+# Remove the first row from the dataframe
+RISK2 <- RISK2[-1, , drop = FALSE]
+
+
+write.csv(RISK2, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/RISK2/RISK2.csv", row.names = FALSE)
+
+RISK2
+```
+
+```{r}
+new_data <- read.delim("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/RISK2/GSE57945_RAW/GSM1598408_CCFA_Risk_001.txt", header = FALSE, stringsAsFactors = FALSE)
+
+# Rename the first column to have a meaningful name
+colnames(new_data)[2] <- ""  # Replace "ID" with a meaningful name for your identifier
+
+# Assuming df_existing is your existing dataframe and it has a common identifier column "ID"
+# Merge the first column of the new dataframe with the existing dataframe based on the common identifier
+df_merged <- merge(new_data, final_dataframe, by = "", all.x = TRUE)
+
+# Print the merged dataframe
+df_merged
+
+
+
+new_column <- scan("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/RISK2/GSE57945_RAW/GSM1598408_CCFA_Risk_001.txt", what = "", sep = "\n")
+
+# Assuming df_existing is your existing dataframe
+# Add the new column to the existing dataframe
+final_dataframe$NewColumn <- new_column
+
+# Print the modified dataframe
+final_dataframe
+```
+
+
+
+```{r}
+library(readxl)
+
+#counts
+RISK <- read.delim("/Users/savitasastry/Downloads/Metatranscriptomics/RISK/GSE117993_raw_counts_GRCh38.p13_NCBI.tsv")
+AIICD <- read.table('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/AIICD/GSE66207_ReadCounts_AllCD_AllControl_GEO.txt', header = TRUE, sep = '\t')
+Denmark <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Denmark/GSE222070_Normdata.csv', header = TRUE)
+G155 <- read_excel('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/G155/GSE130038_UC_CountMatrix_ProtCode.xlsx')
+names(G155)[1] <- "Gene"
+reGRID <- read.table('/Users/savitasastry/Downloads/Metatranscriptomics/reGRID/GSE193677_MSCCR_Biopsy_counts.txt', header = TRUE, sep = " ")
+reGRID$Gene <- rownames(reGRID)  # Add row names as a new column "Gene"
+rownames(reGRID) <- NULL 
+reGRID <- reGRID[, c(ncol(reGRID), 1:(ncol(reGRID) - 1))]
+RISK2 <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/RISK2/RISK2.csv')
+Sweden <- read.table('/Users/savitasastry/Downloads/Metatranscriptomics/Sweden/GSE159008_Raw_count_matrix.txt', header = TRUE, sep = '\t')
+VEO_IBD <- read.table('/Users/savitasastry/Downloads/Metatranscriptomics/VEO-IBD/GSE135170_colonoid.072919.txt', header = TRUE, sep = '\t')
+Southampton <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Southampton/GSE153974_Raw_Gene_Counts_Matrix_GEO.csv', header = TRUE)
+colnames(Southampton)[-1] <- gsub("\\.", " ", colnames(Southampton)[-1])
+
+#metadata
+RISK_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/RISK/RISK_metadata.csv', header = TRUE)
+AIICD_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/AIICD/AIICD_metadata.csv', header = TRUE)
+Denmark_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Denmark/Denmark_metadata.csv', header = TRUE)
+G155_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/G155/G155_metadata.csv', header = TRUE)
+reGRID_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/reGRID/reGRID_metadata.csv', header = TRUE) 
+RISK2_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/RISK2/RISK2_metadata.csv', header = TRUE) 
+Southampton_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Southampton/Southampton_Metadata.csv', header = TRUE)
+Spain_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Spain/Spain_metadata.csv', header = TRUE)
+Sweden_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Sweden/Sweden_metadata.csv', header = TRUE)
+VEO_IBD_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/VEO-IBD/VEO_IBD_Metadata.csv', header = TRUE)
+PROTECT_metadata <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/PROTECT/Protect_Metadata.csv', header = TRUE)
+Metadata_all <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Transcriptomics_Metadata_All.csv', header = TRUE)
+
+
+head(RISK) #normalized #deseq
+head(AIICD) #normalized #deseq
+head(Denmark) #normalized #RAW DATA NOT PROVIDED 
+head(G155) #normalized below #deseq
+head(reGRID) #normalized #deseq
+head(RISK2) #normalized #!!!!!!!!
+head(Southampton) #normalized #deseq
+head(Spain) #normalized #!!!!!!
+head(Sweden) #normalized below #deseq
+head(VEO_IBD) #normalized #!!!!!
+head(PROTECT) #normalized #!!!!!
+```
+
+
+#SUBSET METADATA BASED ON COLON TISSUE SAMPLES AND ACTIVITY: INCLUDING ONLY ACTIVE, NON-TREATED IBD AND HEALTHY CONTROLS
+
+```{r}
+
+#AIICD was removed from the metatranscriptomics analysis because of the lack of proper healthy controls and only taking samples from non-inflammed regions
+
+RISK_metadata_colon <- RISK_metadata[RISK_metadata$source == "colon", ]
+reGRID_metadata_colon_active <- reGRID_metadata[reGRID_metadata$source == "colon" & (reGRID_metadata$activity == "Active" | is.na(reGRID_metadata$activity)), ]
+Sweden_metadata_colon_active <- Sweden_metadata[Sweden_metadata$source == "colon" & (Sweden_metadata$activity == "Active" | is.na(Sweden_metadata$activity)), ]
+
+RISK_metadata_colon 
+reGRID_metadata_colon_active 
+Sweden_metadata_colon_active
+
+
+RISK_colon_names <- RISK_metadata_colon$sample
+reGRID_colon_names_active <- reGRID_metadata_colon_active$sample
+Sweden_colon_names_active <- Sweden_metadata_colon_active$sample
+
+
+RISK_colon <- RISK[, colnames(RISK) %in% RISK_colon_names]
+RISK_colon <- cbind(RISK[, 1, drop = FALSE], RISK_colon)
+reGRID_colon_active <- reGRID[, colnames(reGRID) %in% reGRID_colon_names_active]
+reGRID_colon_active <- cbind(reGRID[, 1, drop = FALSE], reGRID_colon_active)
+Sweden_colon_active <- Sweden[, colnames(Sweden) %in% Sweden_colon_names_active]
+Sweden_colon_active <- cbind(Sweden[, 1, drop = FALSE], Sweden_colon_active)
+```
+
+#MAKE SURE ORDERING OF THE METADATA IS THE SAME AS THE ORDERING OF THE COUNTS
+
+```{r}
+identical(RISK_colon_names, colnames(RISK_colon)[-1])
+identical(Sweden_colon_names_active, colnames(Sweden_colon_active)[-1])
+reGRID_colon_active <- reGRID_colon_active[, c(1, match(reGRID_colon_names_active, names(reGRID_colon_active)[-1]) + 1)]
+identical(reGRID_colon_names_active, colnames(reGRID_colon_active)[-1])
+
+```
+
+#RUN DESEQ2 ON COLON TISSUE SAMPLES
+
+```{r}
+library(DESeq2)
+
+##########
+
+RISK_colon <- as.data.frame(RISK_colon)
+dds_RISK_colon <- DESeqDataSetFromMatrix(countData = RISK_colon,
+                                   colData = RISK_metadata,
+                                   design = ~disease, tidy = TRUE)
+dds_RISK_colon$disease <- relevel(dds_RISK_colon$disease, ref = "HC")
+
+dds_RISK_colon <- DESeq(dds_RISK_colon)
+
+
+# Extract normalized count matrix
+RISK_normalized_colon <- counts(dds_RISK_colon, normalized = TRUE)
+
+res_RISK_colon <- results(dds_RISK_colon) #apply shrinkage to improve accuracy of estimated fold change. lowly expressed genes tend to have high relatively levels of variability.
+
+##########
+
+
+reGRID_colon_active[, -1] <- lapply(reGRID_colon_active[, -1], function(x) as.integer(round(x)))
+
+
+#reGRID_colon_active <- reGRID_colon_active[, -which(colnames(reGRID_colon_active) == "MSCCR_reGRID_1_Biopsy_3")] #was messing things up bc for some reason an intestine column name came into the colon df
+
+dds_reGRID_colon_active <- DESeqDataSetFromMatrix(countData = reGRID_colon_active,
+                                   colData = reGRID_metadata_colon_active,
+                                   design = ~disease, tidy = TRUE)
+dds_reGRID_colon_active$disease <- relevel(dds_reGRID_colon_active$disease, ref = "HC")
+
+dds_reGRID_colon_active <- DESeq(dds_reGRID_colon_active)
+
+# Extract normalized count matrix
+reGRID_normalized_colon_active <- counts(dds_reGRID_colon_active, normalized = TRUE)
+
+res_reGRID_colon_active <- results(dds_reGRID_colon_active)
+
+##########
+
+Sweden_colon_active <- as.data.frame(Sweden_colon_active)
+dds_Sweden_colon_active <- DESeqDataSetFromMatrix(countData = Sweden_colon_active,
+                                   colData = Sweden_metadata_colon_active,
+                                   design = ~disease, tidy = TRUE)
+dds_Sweden_colon_active$disease <- relevel(dds_Sweden_colon_active$disease, ref = "HC")
+
+dds_Sweden_colon_active <- DESeq(dds_Sweden_colon_active)
+
+# Extract normalized count matrix
+Sweden_normalized_colon_active <- counts(dds_Sweden_colon_active, normalized = TRUE)
+
+res_Sweden_colon_active <- results(dds_Sweden_colon_active)
+
+```
+
+```{r}
+#COLON
+res_RISK_colon <- as.data.frame(res_RISK_colon)
+res_reGRID_colon_active <- as.data.frame(res_reGRID_colon_active)
+res_Sweden_colon_active <- as.data.frame(res_Sweden_colon_active)
+
+res_RISK_colon <- tibble::rownames_to_column(res_RISK_colon, var = "NCBI_ID")
+res_reGRID_colon_active <- tibble::rownames_to_column(res_reGRID_colon_active, var = "entrez_gene_id")
+res_Sweden_colon_active <- tibble::rownames_to_column(res_Sweden_colon_active, var = "entrez_gene_id")
+
+res_RISK_colon_sig <- subset(res_RISK_colon, pvalue < 0.05)
+res_reGRID_colon_active_sig <- subset(res_reGRID_colon_active, pvalue < 0.05)
+res_Sweden_colon_active_sig <- subset(res_Sweden_colon_active, pvalue < 0.05)
+
+res_RISK_colon_sig 
+res_reGRID_colon_active_sig
+res_Sweden_colon_active_sig
+```
+```{r}
+library("biomaRt")
+BiocManager::install("ensembl")
+#library(ensembl)
+human <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+#mouse
+gene_ids <- getBM(attributes=c("ensembl_gene_id", "entrezgene_id", "description", "external_gene_name"), mart=human)
+gene_ids
+head(gene_ids)
+```
+
+```{r}
+library(dplyr)
+library(tibble)
+#res_RISK_colon <- tibble::rownames_to_column(res_RISK_colon, var = "NCBI_ID")
+res_RISK_colon_sig$NCBI_ID <- as.integer(res_RISK_colon_sig$NCBI_ID)
+# Merge dataframes based on entrez_gene_id using dplyr's left_join
+merged_RISK_colon <- left_join(res_RISK_colon_sig, gene_ids, by = c("NCBI_ID" = "entrezgene_id"))
+
+merged_RISK_colon <- subset(merged_RISK_colon, select = c((ncol(merged_RISK_colon) - 2):ncol(merged_RISK_colon), 1:(ncol(merged_RISK_colon) - 3)))
+
+res_RISK_colon_sig <- arrange(merged_RISK_colon, log2FoldChange)
+res_RISK_colon_sig
+sum(is.na(res_RISK_colon_sig$ensembl_gene_id))
+#2811 NA rows out of 16618 rows, 16.9% pseudogene
+
+up_RISK_colon <- subset(res_RISK_colon_sig, log2FoldChange > 0)
+up_RISK_colon <- up_RISK_colon[order(-up_RISK_colon$log2FoldChange), ]
+down_RISK_colon <- subset(res_RISK_colon_sig, log2FoldChange < 0)
+
+```
+
+```{r}
+
+#res_reGRID_colon <- tibble::rownames_to_column(res_reGRID_colon, var = "entrez_gene_id")
+res_reGRID_colon_active_sig <- arrange(res_reGRID_colon_active_sig, log2FoldChange)
+
+res_reGRID_colon_active_sig <- left_join(res_reGRID_colon_active_sig, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+res_reGRID_colon_active_sig <- subset(res_reGRID_colon_active_sig, select = c((ncol(res_reGRID_colon_active_sig) - 2):ncol(res_reGRID_colon_active_sig), 1:(ncol(res_reGRID_colon_active_sig) - 3)))
+res_reGRID_colon_active_sig
+
+sum(is.na(res_reGRID_colon_active_sig$entrezgene_id))
+
+up_reGRID_colon <- subset(res_reGRID_colon_active_sig, log2FoldChange > 0)
+up_reGRID_colon <- up_reGRID_colon[order(-up_reGRID_colon$log2FoldChange), ]
+down_reGRID_colon <- subset(res_reGRID_colon_active_sig, log2FoldChange < 0)
+
+#1695 out of 7612 rows are NA,22.2% pseudogene?
+```
+
+```{r}
+#res_Sweden_colon <- tibble::rownames_to_column(res_Sweden_colon, var = "entrez_gene_id")
+res_Sweden_colon_active_sig <- arrange(res_Sweden_colon_active_sig, log2FoldChange)
+
+res_Sweden_colon_active_sig <- left_join(res_Sweden_colon_active_sig, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+#res_Sweden_sig_colon <- subset(res_Sweden_sig_colon, select = c((ncol(res_Sweden_sig_colon) - 2):ncol(res_Sweden_sig_colon), 1:(ncol(res_Sweden_sig_colon) - 3)))
+res_Sweden_colon_active_sig
+
+sum(is.na(res_Sweden_colon_active_sig$entrezgene_id))
+
+#234 out of 2599 rows are NA, 9.0% pseudogene?
+
+up_Sweden_colon <- subset(res_Sweden_colon_active_sig, log2FoldChange > 0)
+up_Sweden_colon <- up_Sweden_colon[order(-up_Sweden_colon$log2FoldChange), ]
+down_Sweden_colon <- subset(res_Sweden_colon_active_sig, log2FoldChange < 0)
+```
+
+```{r}
+write.csv(res_reGRID_colon_active_sig, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/res_reGRID_sig_colon.csv", row.names = FALSE) #does not have ZIP4
+write.csv(res_RISK_colon_sig, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/res_RISK_sig_colon.csv", row.names = FALSE) #ZIP4 is downregulated
+write.csv(res_Sweden_colon_active_sig, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/res_Sweden_sig_colon.csv", row.names = FALSE) #does not have ZIP4
+```
+
+#GENERATE AGGREGATED SHEET OF META-ANALYSIS COMMON UPREGULATED/DOWNREGULATED GENES IN INTESTINE/COLON
+```{r}
+
+columns_to_keep <- c("external_gene_name", "log2FoldChange", "pvalue")  # Replace these with the actual column names you want to keep
+
+res_reGRID_colon_active_sig <- res_reGRID_colon_active_sig[, columns_to_keep, drop = FALSE]
+res_reGRID_colon_active_sig <- res_reGRID_colon_active_sig[complete.cases(res_reGRID_colon_active_sig$external_gene_name), ]
+res_reGRID_colon_active_sig[res_reGRID_colon_active_sig$external_gene_name != "", , drop = FALSE]
+
+res_RISK_colon_sig <- res_RISK_colon_sig[, columns_to_keep, drop = FALSE]
+res_RISK_colon_sig <- res_RISK_colon_sig[complete.cases(res_RISK_colon_sig$external_gene_name), ]
+res_RISK_colon_sig[res_RISK_colon_sig$external_gene_name != "", , drop = FALSE]
+
+res_Sweden_colon_active_sig <- res_Sweden_colon_active_sig[, columns_to_keep, drop = FALSE]
+res_Sweden_colon_active_sig <- res_Sweden_colon_active_sig[complete.cases(res_Sweden_colon_active_sig$external_gene_name), ]
+res_Sweden_colon_active_sig[res_Sweden_colon_active_sig$external_gene_name != "", , drop = FALSE]
+
+
+Meta_all_colon <- rbind(res_reGRID_colon_active_sig, res_RISK_colon_sig, res_Sweden_colon_active_sig)
+
+
+Meta_up_colon <- Meta_all_colon[Meta_all_colon$log2FoldChange > 0, , drop = FALSE]
+Meta_down_colon <- Meta_all_colon[Meta_all_colon$log2FoldChange < 0, , drop = FALSE]
+
+write.csv(Meta_all_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_all_colon.csv", row.names = FALSE) #ZIP4 is downregulated
+write.csv(Meta_up_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_up_colon.csv", row.names = FALSE) #ZIP4 is downregulated
+write.csv(Meta_down_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_down_colon.csv", row.names = FALSE) #does not have ZIP4
+
+
+```
+```{r}
+Meta_all_colon
+```
+
+
+```{r}
+library(dplyr)
+df_unique <- Meta_all_colon %>% 
+  distinct(external_gene_name, .keep_all = TRUE)
+
+df_unique <- df_unique[!is.na(df_unique$external_gene_name) & df_unique$external_gene_name != "", ]
+
+Meta_all_colon
+df_unique
+
+```
+```{r}
+search()
+```
+
+
+
+```{r fig.height=6}
+
+#library(ggplot2)
+#library(ggrepel)
+#library(EnhancedVolcano)
+
+library(dplyr)
+#ZINC DEFICIENT MICE VERSUS HEALTHY MICE CONTROLS ON CHOW DIET. Zn Deficiency is all dietary in this experiment 
+
+#options(repr.plot.width = 5, repr.plot.height = 5)
+
+EnhancedVolcano(distinct(Meta_all_colon),
+    lab = distinct(Meta_all_colon)$external_gene_name,
+    x = 'log2FoldChange',
+    y = 'pvalue',
+    xlim = c(-8,8),
+    pCutoff = 10e-5,
+    FCcutoff = 0.3,
+    pointSize = 2,
+    labSize = 5,
+    legendPosition = 'right',
+    legendLabSize = 10,
+    legendIconSize = 5,
+    title = 'Differential Expression of Colon Tissue Genes in Active Human IBD', 
+    subtitle = "GEO Series: GSE117993, GSE193677, and GSE159008",
+    axisLabSize = 15
+    )
+
+
+```
+
+```{r}
+library(DESeq2)
+
+rld <- vst(dds_reGRID_colon_active)
+plotPCA(rld, intgroup = "activity")
+plotPCA(rld, intgroup = "disease")
+plotPCA(rld, intgroup = "sex")
+plotPCA(rld, intgroup = "Inflamed")
+
+
+```
+
+
+```{r}
+library(DESeq2)
+
+rld <- vst(dds_RISK_colon)
+plotPCA(rld, intgroup = "disease")
+
+```
+
+```{r}
+library(DESeq2)
+
+rld <- vst(dds_Sweden_colon_active)
+plotPCA(rld, intgroup = "activity")
+plotPCA(rld, intgroup = "disease")
+plotPCA(rld, intgroup = "sex")
+plotPCA(rld, intgroup = "age")
+
+```
+
+```{r}
+colnames(colData(dds_Sweden_colon_active))
+```
+
+##INTESTINE
+
+#SUBSET METADATA BASED ON INTESTINAL TISSUE SAMPLES AND ACTIVITY: INCLUDING ONLY ACTIVE, NON-TREATED IBD AND HEALTHY CONTROLS
+
+```{r}
+
+#AIICD was removed from the metatranscriptomics analysis because of the lack of proper healthy controls and only taking samples from non-inflammed regions
+
+reGRID_metadata_intestine_active <- reGRID_metadata[reGRID_metadata$source == "intestine" & (reGRID_metadata$activity == "Active" | is.na(reGRID_metadata$activity)), ]
+Southampton_metadata_intestine_active <- Southampton_metadata[Southampton_metadata$Treatment == "no", ]
+
+reGRID_metadata_intestine_active
+Southampton_metadata_intestine_active
+
+reGRID_intestine_names_active <- reGRID_metadata_intestine_active$sample
+Southampton_intestine_names_active <- Southampton_metadata_intestine_active$sample
+
+
+reGRID_intestine_active <- reGRID[, colnames(reGRID) %in% reGRID_intestine_names_active]
+reGRID_intestine_active <- cbind(reGRID[, 1, drop = FALSE], reGRID_intestine_active)
+Southampton_intestine_active <- Southampton[, colnames(Southampton) %in% Southampton_intestine_names_active]
+Southampton_intestine_active <- cbind(Southampton[, 1, drop = FALSE], Southampton_intestine_active)
+```
+
+#MAKE SURE ORDERING OF THE METADATA IS THE SAME AS THE ORDERING OF THE COUNTS
+
+```{r}
+
+identical(Southampton_intestine_names_active, colnames(Southampton_intestine_active)[-1])
+reGRID_intestine_active <- reGRID_intestine_active[, c(1, match(reGRID_intestine_names_active, names(reGRID_intestine_active)[-1]) + 1)]
+identical(reGRID_intestine_names_active, colnames(reGRID_intestine_active)[-1])
+
+```
+
+
+#RUN DESEQ2 ON COLON TISSUE SAMPLES
+
+```{r}
+library(DESeq2)
+
+##########
+
+
+reGRID_intestine_active[, -1] <- lapply(reGRID_intestine_active[, -1], function(x) as.integer(round(x)))
+
+
+#reGRID_colon_active <- reGRID_colon_active[, -which(colnames(reGRID_colon_active) == "MSCCR_reGRID_1_Biopsy_3")] #was messing things up bc for some reason an intestine column name came into the colon df
+
+dds_reGRID_intestine_active <- DESeqDataSetFromMatrix(countData = reGRID_intestine_active,
+                                   colData = reGRID_metadata_intestine_active,
+                                   design = ~disease, tidy = TRUE)
+dds_reGRID_intestine_active$disease <- relevel(dds_reGRID_intestine_active$disease, ref = "HC")
+
+dds_reGRID_intestine_active <- DESeq(dds_reGRID_intestine_active)
+
+# Extract normalized count matrix
+reGRID_normalized_intestine_active <- counts(dds_reGRID_intestine_active, normalized = TRUE)
+
+res_reGRID_intestine_active <- results(dds_reGRID_intestine_active)
+
+##########
+
+Southampton_intestine_active <- as.data.frame(Southampton_intestine_active)
+dds_Southampton_intestine_active <- DESeqDataSetFromMatrix(countData = Southampton_intestine_active,
+                                   colData = Southampton_metadata_intestine_active,
+                                   design = ~disease, tidy = TRUE)
+dds_Southampton_intestine_active$disease <- relevel(dds_Southampton_intestine_active$disease, ref = "HC")
+
+dds_Southampton_intestine_active <- DESeq(dds_Southampton_intestine_active)
+
+# Extract normalized count matrix
+Southampton_normalized_intestine_active <- counts(dds_Southampton_intestine_active, normalized = TRUE)
+
+res_Southampton_intestine_active <- results(dds_Southampton_intestine_active)
+
+```
+```{r}
+res_reGRID_int_active
+Southampton_intestine_active
+AIICD
+```
+
+
+```{r}
+#INTESTINE
+
+res_Southampton_int_active <- as.data.frame(res_Southampton_intestine_active)
+res_reGRID_int_active <- as.data.frame(res_reGRID_intestine_active)
+
+res_reGRID_int_active <- tibble::rownames_to_column(res_reGRID_int_active, var = "entrez_gene_id")
+res_Southampton_int_active <- tibble::rownames_to_column(res_Southampton_int_active, var = "external_gene_name")
+
+
+res_reGRID_int_active_sig <- subset(res_reGRID_int_active, pvalue < 0.05)
+res_Southampton_int_active_sig <- subset(res_Southampton_int_active, pvalue < 0.05)
+
+res_reGRID_int_active_sig
+res_Southampton_int_active_sig
+```
+
+
+
+```{r}
+library("biomaRt")
+BiocManager::install("ensembl")
+#library(ensembl)
+human <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+#mouse
+gene_ids <- getBM(attributes=c("ensembl_gene_id", "entrezgene_id", "description", "external_gene_name"), mart=human)
+gene_ids
+head(gene_ids)
+```
+
+
+```{r}
+
+#res_reGRID_colon <- tibble::rownames_to_column(res_reGRID_colon, var = "entrez_gene_id")
+res_reGRID_int_active_sig <- arrange(res_reGRID_int_active_sig, log2FoldChange)
+
+res_reGRID_int_active_sig <- left_join(res_reGRID_int_active_sig, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+res_reGRID_int_active_sig <- subset(res_reGRID_int_active_sig, select = c((ncol(res_reGRID_int_active_sig) - 2):ncol(res_reGRID_int_active_sig), 1:(ncol(res_reGRID_int_active_sig) - 3)))
+res_reGRID_int_active_sig
+
+sum(is.na(res_reGRID_int_active_sig$entrezgene_id))
+
+up_reGRID_int <- subset(res_reGRID_int_active_sig, log2FoldChange > 0)
+up_reGRID_int <- up_reGRID_int[order(-up_reGRID_int$log2FoldChange), ]
+down_reGRID_int <- subset(res_reGRID_int_active_sig, log2FoldChange < 0)
+
+#990 out of 2453 rows are NA,40.3% pseudogene?
+```
+
+```{r}
+#res_Sweden_colon <- tibble::rownames_to_column(res_Sweden_colon, var = "entrez_gene_id")
+res_Southampton_int_active_sig <- arrange(res_Southampton_int_active_sig, log2FoldChange)
+
+res_Southampton_int_active_sig <- left_join(res_Southampton_int_active_sig, gene_ids, by = c("external_gene_name" = "external_gene_name"))
+#res_Sweden_sig_colon <- subset(res_Sweden_sig_colon, select = c((ncol(res_Sweden_sig_colon) - 2):ncol(res_Sweden_sig_colon), 1:(ncol(res_Sweden_sig_colon) - 3)))
+res_Southampton_int_active_sig
+
+sum(is.na(res_Southampton_int_active_sig$entrezgene_id))
+
+#234 out of 2599 rows are NA, 9.0% pseudogene?
+
+up_Southampton_int <- subset(res_Southampton_int_active_sig, log2FoldChange > 0)
+up_Southampton_int <- up_Southampton_int[order(-up_Southampton_int$log2FoldChange), ]
+down_Southampton_int <- subset(res_Southampton_int_active_sig, log2FoldChange < 0)
+```
+
+```{r}
+res_reGRID_int_active_sig
+res_Southampton_int_active_sig
+
+write.csv(res_reGRID_int_active_sig, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/res_reGRID_int_active_sig.csv", row.names = FALSE) 
+
+write.csv(res_Southampton_int_active_sig, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/res_Southampton_int_active_sig.csv", row.names = FALSE) 
+```
+
+
+
+```{r}
+#reGRID #GSE193677
+#RISK #GSE153974
+#Sweden #GSE193677
+
+
+x <- list(
+  GSE193677 = res_reGRID_colon_active_sig$external_gene_name, 
+  GSE153974 = res_RISK_colon_sig$external_gene_name, 
+  GSE159008 = res_Sweden_colon_active_sig$external_gene_name 
+  )
+library(ggvenn)
+venn <- ggvenn(
+  x, 
+  fill_alpha = 0.5,
+  fill_color = c("#0073C2FF", "#EFC000FF", "pink"),
+  stroke_size = 0.5, set_name_size = 4, text_size = 3,
+  ) + ggtitle("Overlap of differentially expressed genes between colonic\ntranscripts in Human IBD\n") + 
+  theme(
+    text = element_text(size = 12, family = "Arial")
+)
+venn
+#ggsave("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/SharedDifGenes_ZnDef_IL10KOZn.png", venn, width = 10, height = 6, units = "in", dpi = 300)
+```
+
+
+```{r}
+
+#reGRID #GSE193677
+#RISK #GSE153974
+#Sweden #GSE193677
+#Southampton #GSE117993
+
+
+x <- list(
+  GSE193677 = res_reGRID_int_active_sig$external_gene_name, 
+  GSE117993 = res_Southampton_int_active_sig$external_gene_name 
+  )
+library(ggvenn)
+venn <- ggvenn(
+  x, 
+  fill_alpha = 0.5,
+  fill_color = c("#0073C2FF", "#EFC000FF"),
+  stroke_size = 0.5, set_name_size = 4, text_size = 5,
+  ) + ggtitle("Overlap of differentially expressed genes between intestinal\ntranscripts in Human IBD\n") + 
+  theme(
+    text = element_text(size = 12, family = "Arial")
+)
+venn
+#ggsave("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/SharedDifGenes_ZnDef_IL10KOZn.png", venn, width = 10, height = 6, units = "in", dpi = 300)
+```
+
+```{r}
+res_reGRID_int_active_sig
+res_Southampton_int_active_sig
+
+columns_to_keep <- c("external_gene_name", "log2FoldChange", "pvalue")  # Replace these with the actual column names you want to keep
+
+res_reGRID_int_active_sig <- res_reGRID_int_active_sig[, columns_to_keep, drop = FALSE]
+res_reGRID_int_active_sig <- res_reGRID_int_active_sig[complete.cases(res_reGRID_colon_active_sig$external_gene_name), ]
+res_reGRID_int_active_sig[res_reGRID_int_active_sig$external_gene_name != "", , drop = FALSE]
+
+res_Southampton_int_active_sig <- res_Southampton_int_active_sig[, columns_to_keep, drop = FALSE]
+res_Southampton_int_active_sig <- res_Southampton_int_active_sig[complete.cases(res_RISK_colon_sig$external_gene_name), ]
+res_Southampton_int_active_sig[res_Southampton_int_active_sig$external_gene_name != "", , drop = FALSE]
+
+res_reGRID_int_active_sig
+res_Southampton_int_active_sig
+
+Meta_all_int <- rbind(res_reGRID_int_active_sig, res_Southampton_int_active_sig)
+Meta_all_int <- Meta_all_int %>% 
+  distinct(external_gene_name, .keep_all = TRUE)
+
+
+Meta_all_int <- Meta_all_int[!is.na(Meta_all_int$external_gene_name) & Meta_all_int$external_gene_name != "", ]
+
+Meta_all_int
+
+
+Meta_up_int <- Meta_all_colon[Meta_all_colon$log2FoldChange > 0, , drop = FALSE]
+Meta_down_int <- Meta_all_colon[Meta_all_colon$log2FoldChange < 0, , drop = FALSE]
+
+write.csv(Meta_all_int, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_all_int.csv", row.names = FALSE) #ZIP4 is downregulated
+write.csv(Meta_up_int, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_up_int.csv", row.names = FALSE) #ZIP4 is downregulated
+write.csv(Meta_down_int, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_down_int.csv", row.names = FALSE) #does not have ZIP4
+```
+
+
+```{r}
+common_genes_int <- intersect(res_reGRID_int_active_sig, res_Southampton_int_active_sig)
+common_genes_int
+
+```
+
+#GENERATE AGGREGATED SHEET OF META-ANALYSIS COMMON UPREGULATED/DOWNREGULATED GENES IN INTESTINE/COLON
+
+```{r}
+res_reGRID_int_active_sig
+```
+
+```{r}
+
+columns_to_keep <- c("external_gene_name", "log2FoldChange", "pvalue")  # Replace these with the actual column names you want to keep
+
+res_reGRID_int_active_sig <- res_reGRID_int_active_sig[, columns_to_keep, drop = FALSE]
+res_reGRID_int_active_sig <- res_reGRID_int_active_sig[complete.cases(res_reGRID_int_active_sig$external_gene_name), ]
+res_reGRID_int_active_sig[res_reGRID_int_active_sig$external_gene_name != "", , drop = FALSE]
+
+
+res_Southampton_int_active_sig <- res_Southampton_int_active_sig[, columns_to_keep, drop = FALSE]
+res_Southampton_int_active_sig <- res_Southampton_int_active_sig[complete.cases(res_Southampton_int_active_sig$external_gene_name), ]
+res_Southampton_int_active_sig[res_Southampton_int_active_sig$external_gene_name != "", , drop = FALSE]
+
+
+Meta_all_int <- rbind(res_reGRID_int_active_sig, res_Southampton_int_active_sig)
+
+
+Meta_up_int <- Meta_all_int[Meta_all_int$log2FoldChange > 0, , drop = FALSE]
+Meta_down_int <- Meta_all_int[Meta_all_int$log2FoldChange < 0, , drop = FALSE]
+
+```
+
+```{r fig.height=6}
+library(ggrepel)
+library(EnhancedVolcano)
+
+#ZINC DEFICIENT MICE VERSUS HEALTHY MICE CONTROLS ON CHOW DIET. Zn Deficiency is all dietary in this experiment 
+
+#options(repr.plot.width = 5, repr.plot.height = 5)
+
+EnhancedVolcano(distinct(Meta_all_int),
+    lab = distinct(Meta_all_int)$external_gene_name,
+    x = 'log2FoldChange',
+    y = 'pvalue',
+    xlim = c(-5,5),
+    ylim = c(0,10),
+    pCutoff = 10e-5,
+    FCcutoff = 0.3,
+    pointSize = 2,
+    labSize = 5,
+    legendPosition = 'right',
+    legendLabSize = 10,
+    legendIconSize = 5,
+    title = 'Differential Expression of Intestinal Tissue Genes in Active Human IBD', 
+    subtitle = "GEO Series: GSE153974, GSE193677",
+    axisLabSize = 15
+    )
+
+
+```
+
+```{r}
+library(DESeq2)
+
+rld <- vst(dds_reGRID_intestine_active)
+plotPCA(rld, intgroup = "activity")
+plotPCA(rld, intgroup = "disease")
+plotPCA(rld, intgroup = "sex")
+plotPCA(rld, intgroup = "Inflamed")
+
+
+```
+
+```{r}
+library(DESeq2)
+
+rld <- vst(dds_Southampton_intestine_active)
+plotPCA(rld, intgroup = "Treatment")
+plotPCA(rld, intgroup = "disease")
+
+```
+
+
+```{r}
+colnames(colData(dds_Southampton_intestine_active))
+```
+
+```{r}
+combined_genes <- union(union(res_reGRID_int_active_sig$external_gene_name, res_Southampton_int_active_sig$external_gene_name))
+
+# Identify genes present in at least 2/3 dataframes
+genes_in_2_or_3 <- combined_genes[
+  combined_genes %in% res_reGRID_colon_active_sig$external_gene_name &
+  combined_genes %in% res_Sweden_colon_active_sig$external_gene_name |
+  combined_genes %in% res_reGRID_colon_active_sig$external_gene_name &
+  combined_genes %in% res_RISK_colon_sig$external_gene_name |
+  combined_genes %in% res_Sweden_colon_active_sig$external_gene_name &
+  combined_genes %in% res_RISK_colon_sig$external_gene_name
+]
+
+# Print the list of genes present in at least 2/3 dataframes
+print(genes_in_2_or_3)
+
+writeLines(genes_in_2_or_3, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Common_genes_colon_HumanIBD.txt")
+
+
+genes_in_all_3 <- res_reGRID_colon_active_sig$external_gene_name[
+  res_reGRID_colon_active_sig$external_gene_name %in% res_Sweden_colon_active_sig$external_gene_name &
+  res_reGRID_colon_active_sig$external_gene_name %in% res_RISK_colon_sig$external_gene_name
+]
+
+# Print the list of genes present in all 3 dataframes
+print(genes_in_all_3)
+```
+
+
+#COMPARE THE INTESTINE AND COLON. GENERATE AGGREGATED SHEET OF META-ANALYSIS COMMON UPREGULATED/DOWNREGULATED GENES IN INTESTINE/COLON
+```{r}
+
+common_up <- intersect(Meta_up_colon$external_gene_name, Meta_up_int$external_gene_name)
+common_down <- intersect(Meta_down_colon$external_gene_name, Meta_down_int$external_gene_name)
+
+Meta_common_colon_up <- Meta_up_colon[Meta_up_colon$external_gene_name %in% common_up, ]
+Meta_common_colon_up <- Meta_common_colon_up[!duplicated(Meta_common_colon_up$external_gene_name), ]
+
+Meta_common_colon_down <- Meta_down_colon[Meta_down_colon$external_gene_name %in% common_down, ]
+Meta_common_colon_down <- Meta_common_colon_down[!duplicated(Meta_common_colon_down$external_gene_name), ]
+
+Meta_common_int_up <- Meta_up_int[Meta_up_int$external_gene_name %in% common_up, ]
+Meta_common_int_up <- Meta_common_int_up[!duplicated(Meta_common_int_up$external_gene_name), ]
+
+Meta_common_int_down <- Meta_down_int[Meta_down_int$external_gene_name %in% common_down, ]
+Meta_common_int_down <- Meta_common_int_down[!duplicated(Meta_common_int_down$external_gene_name), ]
+
+
+Meta_common_int_colon_up <- merge(Meta_common_colon_up, Meta_common_int_up, by = "external_gene_name")
+Meta_common_int_colon_down <- merge(Meta_common_colon_down, Meta_common_int_down, by = "external_gene_name")
+  
+  
+write.csv(Meta_all_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_all_colon.csv", row.names = FALSE) 
+write.csv(Meta_all_int, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_all_int.csv", row.names = FALSE) 
+write.csv(Meta_up_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_up_colon.csv", row.names = FALSE) 
+write.csv(Meta_down_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_down_colon.csv", row.names = FALSE) 
+write.csv(Meta_up_int, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_up_int.csv", row.names = FALSE) 
+write.csv(Meta_down_int, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_down_int.csv", row.names = FALSE) 
+
+write.csv(Meta_common_int_colon_up, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_common_int_colon_up.csv", row.names = FALSE) 
+write.csv(Meta_common_int_colon_down, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/Meta_common_int_colon_down.csv", row.names = FALSE) 
+
+
+```
+
+```{r}
+
+#reGRID #GSE193677
+#RISK #GSE153974
+#Sweden #GSE193677
+#Southampton #GSE117993
+
+
+x <- list(
+  Colon = Meta_all_colon$external_gene_name, 
+  Intestine = Meta_all_int$external_gene_name 
+  )
+library(ggvenn)
+venn <- ggvenn(
+  x, 
+  fill_alpha = 0.5,
+  fill_color = c("#0073C2FF", "#EFC000FF"),
+  stroke_size = 0.5, set_name_size = 4, text_size = 5,
+  ) + ggtitle("Overlap of Differentially Expressed Genes Between Colonic\nand Intestinal Transcripts in Human IBD") + 
+  theme(
+    text = element_text(size = 12, family = "Arial")
+)
+venn
+#ggsave("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/SharedDifGenes_ZnDef_IL10KOZn.png", venn, width = 10, height = 6, units = "in", dpi = 300)
+```
+
+#SANITY CHECK TO MAKE SURE ZIP4 is UPREGULATED
+```{r}
+
+
+res_RISK_colon_sig[startsWith(res_RISK_colon_sig$external_gene_name, "SLC39A"), ]
+res_reGRID_colon_active_sig[startsWith(res_reGRID_colon_active_sig$external_gene_name, "SLC39A"), ]
+res_Sweden_colon_active_sig[startsWith(res_Sweden_colon_active_sig$external_gene_name, "SLC39A"), ]
+res_reGRID_int_active_sig[startsWith(res_reGRID_int_active_sig$external_gene_name, "SLC39A"), ]
+res_Southampton_int_active_sig[startsWith(res_Southampton_int_active_sig$external_gene_name, "SLC39A"), ]
+
+
+```
+
+```{r}
+ZIP <- c("SLC39A1", "SLC39A2", "SLC39A3", "SLC39A4", "SLC39A5", "SLC39A6", "SLC39A7", "SLC39A8", "SLC39A9", "SLC39A10", "SLC39A11", "SLC39A12", "SLC39A13", "SLC39A14")
+ZNT <- c("SLC30A1", "SLC30A2", "SLC30A3", "SLC30A4", "SLC30A5", "SLC30A6", "SLC30A7", "SLC30A8", "SLC30A9", "SLC30A10")
+
+
+Meta_all_colon_ZIP <- Meta_all_colon[grepl("^SLC39", Meta_all_colon$external_gene_name), ]
+Meta_all_colon_ZIP <- Meta_all_colon_ZIP %>% 
+  arrange(external_gene_name)
+Meta_all_colon_ZIP
+```
+```{r}
+Meta_all_colon[grepl("^SLC39", Meta_all_colon$external_gene_name), ]
+```
+
+
+#subset ZNT and ZIP transporters present in meta-analysis dfs, ZnDef dfs, and common gene df for meta/zndef
+```{r}
+ZIP <- c("SLC39A1", "SLC39A2", "SLC39A3", "SLC39A4", "SLC39A5", "SLC39A6", "SLC39A7", "SLC39A8", "SLC39A9", "SLC39A10", "SLC39A11", "SLC39A12", "SLC39A13", "SLC39A14")
+ZNT <- c("SLC30A1", "SLC30A2", "SLC30A3", "SLC30A4", "SLC30A5", "SLC30A6", "SLC30A7", "SLC30A8", "SLC30A9", "SLC30A10")
+
+
+reGRID_ZIP <- res_reGRID_sig_colon[res_reGRID_sig_colon$external_gene_name %in% ZIP, ]
+reGRID_ZNT <- res_reGRID_sig_colon[res_reGRID_sig_colon$external_gene_name %in% ZNT, ]
+reGRID_ZIP <- reGRID_ZIP[, c("external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+reGRID_ZNT <- reGRID_ZNT[, c("external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+
+RISK_ZIP <- res_RISK_sig_colon[res_RISK_sig_colon$external_gene_name %in% ZIP, ]
+RISK_ZNT <- res_RISK_sig_colon[res_RISK_sig_colon$external_gene_name %in% ZNT, ]
+RISK_ZIP <- RISK_ZIP[, c("external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+RISK_ZNT <- RISK_ZNT[, c("external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+
+AIICD_ZIP <- res_AIICD_sig_colon[res_AIICD_sig_colon$external_gene_name %in% ZIP, ]
+AIICD_ZNT <- res_AIICD_sig_colon[res_AIICD_sig_colon$external_gene_name %in% ZNT, ]
+AIICD_ZIP <- AIICD_ZIP[, c("external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+AIICD_ZNT <- AIICD_ZNT[, c("external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+
+Sweden_ZIP <- res_Sweden_sig_colon[res_Sweden_sig_colon$external_gene_name %in% ZIP, ]
+Sweden_ZNT <- res_Sweden_sig_colon[res_Sweden_sig_colon$external_gene_name %in% ZNT, ]
+Sweden_ZIP <- Sweden_ZIP[, c("external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+Sweden_ZNT <- Sweden_ZNT[, c("external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+
+meta_ZIP <- rbind(reGRID_ZIP, RISK_ZIP, AIICD_ZIP, Sweden_ZIP)
+meta_ZNT <- rbind(reGRID_ZNT, RISK_ZNT, AIICD_ZNT, Sweden_ZNT)
+
+meta_ZIP <- meta_ZIP[, c("external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+meta_ZNT <- meta_ZNT[, c( "external_gene_name", "log2FoldChange", "pvalue"), drop = FALSE]
+
+ZnDef_meta_ZNT_up <- merged_ZnDef_meta_colon_up[, c("Human", "log2FoldChange.x", "pvalue.x", "log2FoldChange.y", "pvalue.y")]
+ZnDef_meta_ZNT_up <- ZnDef_meta_ZNT_up[ZnDef_meta_ZNT_up$Human %in% ZNT, ]
+
+ZnDef_meta_ZIP_up <- merged_ZnDef_meta_colon_up[, c("Human", "log2FoldChange.x", "pvalue.x", "log2FoldChange.y", "pvalue.y")]
+ZnDef_meta_ZIP_up <- ZnDef_meta_ZIP_up[ZnDef_meta_ZIP_up$Human %in% ZIP, ]
+
+
+ZnDef_meta_ZNT_down <- merged_ZnDef_meta_colon_down[, c("Human", "log2FoldChange.x", "pvalue.x", "log2FoldChange.y", "pvalue.y")]
+ZnDef_meta_ZNT_down <- ZnDef_meta_ZNT_down[ZnDef_meta_ZNT_down$Human %in% ZNT, ]
+
+ZnDef_meta_ZIP_down <- merged_ZnDef_meta_colon_down[, c("Human", "log2FoldChange.x", "pvalue.x", "log2FoldChange.y", "pvalue.y")]
+ZnDef_meta_ZIP_down <- ZnDef_meta_ZIP_down[ZnDef_meta_ZIP_down$Human %in% ZIP, ]
+
+
+ZnDef_up_ZNT <- up_ZnDef_colon_human[, c("Human", "log2FoldChange", "pvalue")]
+ZnDef_up_ZNT <- ZnDef_up_ZNT[ZnDef_up_ZNT$Human %in% ZNT, ]
+
+ZnDef_up_ZIP <- up_ZnDef_colon_human[, c("Human", "log2FoldChange", "pvalue")]
+ZnDef_up_ZIP <- ZnDef_up_ZIP[ZnDef_up_ZIP$Human %in% ZIP, ]
+
+ZnDef_down_ZNT <- down_ZnDef_colon_human[, c("Human", "log2FoldChange", "pvalue")]
+ZnDef_down_ZNT <- ZnDef_down_ZNT[ZnDef_down_ZNT$Human %in% ZNT, ]
+
+ZnDef_down_ZIP <- down_ZnDef_colon_human[, c("Human", "log2FoldChange", "pvalue")]
+ZnDef_down_ZIP <- ZnDef_down_ZIP[ZnDef_down_ZIP$Human %in% ZIP, ]
+
+meta_ZIP
+meta_ZNT
+ZnDef_meta_ZNT_up #nothing to see in here
+ZnDef_meta_ZIP_up #nothing to see in here 
+ZnDef_meta_ZNT_down #nothing to see in here 
+ZnDef_meta_ZIP_down
+ZnDef_down_ZIP
+ZnDef_up_ZIP #nothing to see here 
+
+
+write.csv(meta_ZIP, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics//meta_ZIP.csv", row.names = FALSE)
+write.csv(meta_ZNT, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics//meta_ZNT.csv", row.names = FALSE)
+write.csv(ZnDef_meta_ZIP_down, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Tracking_ZIP/ZnDef_meta_ZIP_down.csv", row.names = FALSE)
+write.csv(ZnDef_down_ZIP, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Tracking_ZIP/ZnDef_down_ZIP.csv", row.names = FALSE)
+
+
+```
+
+```{r}
+Meta_ZNT_clean <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Tracking_ZNT/Meta_ZNT_clean.csv', header = TRUE)
+Meta_ZIP_clean <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Tracking_ZIP/Meta_ZIP_clean.csv', header = TRUE)
+ZnDef_Meta_ZIP_clean <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Tracking_ZIP/ZnDef_Meta ZIP_clean.csv', header = TRUE)
+
+
+Meta_ZNT_lollipop <- ggdotchart(Meta_ZNT_clean, x = "external_gene_name", y = "log2FoldChange",
+           color = "#00AFBB",
+           #group = "group" ,# Color by groups
+           palette = c("#00AFBB", "#E7B800", "#FC4E07"), # Custom color palette
+           sorting = "descending",                       # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           add.params = list(color = "lightgray", size = 2), # Change segment color and size
+           #color = "green",                              # Order by groups
+           dot.size = 6,                                 # Large dot size
+           label = round(Meta_ZNT_clean$log2FoldChange,1),                        # Add mpg values as dot labels
+           font.label = list(color = "white", size =8, 
+                             vjust = 0.5),               # Adjust label parameters
+           ggtheme = theme_pubr()                        # ggplot2 theme
+           )+
+  
+  geom_hline(yintercept = 0, linetype = 1, color = "lightgray") + 
+  ggtitle("Differential Expression of Significant ZNT Genes in Meta-Transcriptomic Analysis") +
+labs(
+  x = "Gene Name",
+  y = "Log2 Fold-Change") +
+  ylim(-4, 3)
+
+
+Meta_ZIP_lollipop <- ggdotchart(Meta_ZIP_clean, x = "external_gene_name", y = "log2FoldChange",
+           color = "#00AFBB",
+           #group = "group" ,# Color by groups
+           palette = c("#00AFBB", "#E7B800", "#FC4E07"), # Custom color palette
+           sorting = "descending",                       # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           add.params = list(color = "lightgray", size = 2), # Change segment color and size
+           #color = "green",                              # Order by groups
+           dot.size = 6,                                 # Large dot size
+           label = round(Meta_ZIP_clean$log2FoldChange,1),                        # Add mpg values as dot labels
+           font.label = list(color = "white", size =8, 
+                             vjust = 0.5),               # Adjust label parameters
+           ggtheme = theme_pubr()                        # ggplot2 theme
+           )+
+  
+  geom_hline(yintercept = 0, linetype = 1, color = "lightgray") + 
+  ggtitle("Differential Expression of Significant ZIP Genes in Meta-Transcriptomic Analysis") +
+labs(
+  x = "Gene Name",
+  y = "Log2 Fold-Change") +
+  ylim(-4, 3)
+
+ZnDef_ZIP_lollipop <- ggdotchart(ZnDef_down_ZIP, x = "Human", y = "log2FoldChange",
+           color = "#00AFBB",
+           #group = "group" ,# Color by groups
+           palette = c("#00AFBB", "#E7B800", "#FC4E07"), # Custom color palette
+           sorting = "descending",                       # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           add.params = list(color = "lightgray", size = 2), # Change segment color and size
+           #color = "green",                              # Order by groups
+           dot.size = 6,                                 # Large dot size
+           label = round(ZnDef_down_ZIP$log2FoldChange,1),                        # Add mpg values as dot labels
+           font.label = list(color = "white", size =8, 
+                             vjust = 0.5),               # Adjust label parameters
+           ggtheme = theme_pubr()                        # ggplot2 theme
+           )+
+  
+  geom_hline(yintercept = 0, linetype = 1, color = "lightgray") + 
+  ggtitle("Differential Expression of Significant ZIP Genes in ZnDef Mice") +
+labs(
+  x = "Gene Name",
+  y = "Log2 Fold-Change") +
+  ylim(-4, 3)
+
+ZnDef_Meta_ZIP_lollipop <- ggdotchart(ZnDef_Meta_ZIP_clean, x = "Human", y = "log2FoldChange",
+           color = "#00AFBB",
+           #group = "group" ,# Color by groups
+           palette = c("#00AFBB", "#E7B800", "#FC4E07"), # Custom color palette
+           sorting = "descending",                       # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           add.params = list(color = "lightgray", size = 2), # Change segment color and size
+           #color = "green",                              # Order by groups
+           dot.size = 6,                                 # Large dot size
+           label = round(ZnDef_Meta_ZIP_clean$log2FoldChang,1),                        # Add mpg values as dot labels
+           font.label = list(color = "white", size =8, 
+                             vjust = 0.5),               # Adjust label parameters
+           ggtheme = theme_pubr()                        # ggplot2 theme
+           )+
+  
+  geom_hline(yintercept = 0, linetype = 1, color = "lightgray") + 
+  ggtitle("Differential Expression of Significant ZIP Genes in Common Genes Between Meta-analysis and ZnDef Mice") +
+labs(
+  x = "Gene Name",
+  y = "Log2 Fold-Change") +
+  ylim(-4, 3)
+
+
+Meta_ZNT_lollipop
+Meta_ZIP_lollipop
+ZnDef_ZIP_lollipop
+ZnDef_Meta_ZIP_lollipop
+
+ggsave("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Tracking_ZNT/Meta_ZNT_lollipop.png", Meta_ZNT_lollipop, width = 10, height = 6, units = "in", dpi = 300)
+ggsave("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Tracking_ZIP/Meta_ZIP_lollipop.png", Meta_ZIP_lollipop, width = 10, height = 6, units = "in", dpi = 300)
+ggsave("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Tracking_ZIP/ZnDef_ZIP_lollipop.png", ZnDef_ZIP_lollipop, width = 10, height = 6, units = "in", dpi = 300)
+ggsave("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Tracking_ZIP/ZnDef_Meta_ZIP_lollipop.png", ZnDef_Meta_ZIP_lollipop, width = 10, height = 6, units = "in", dpi = 300)
+
+
+
+```
+
+
+
+
+GENERATE SAMPLE NAMES TO REORDER COUNTS TABLE
+
+```{r}
+
+RISK_metadata_colon <- RISK_metadata[RISK_metadata$source == "colon", ]
+AIICD_metadata_colon <- AIICD_metadata[AIICD_metadata$source == "Colon", ]
+Denmark_metadata_colon <- Denmark_metadata[Denmark_metadata$source == "colon", ]
+G155_metadata_colon <- G155_metadata[G155_metadata$source == "colon", ]
+reGRID_metadata_colon <- reGRID_metadata[reGRID_metadata$source == "colon" & (reGRID_metadata$activity == "Active" | is.na(reGRID_metadata$activity)), ]
+#reGRID_metadata_colon <- reGRID_metadata_colon[complete.cases(reGRID_metadata_colon$), ]
+
+RISK2_metadata_colon <-  RISK2_metadata[RISK2_metadata$source == "colon", ] # DOES NOT HAVE COLON DATA 
+Southampton_metadata_colon <- Southampton_metadata[Southampton_metadata$source == "colon", ] #DOES NOT HAVE COLON DATA 
+Spain_metadata_colon <- Spain_metadata[Spain_metadata$source == "colon", ]
+Sweden_metadata_colon <- Sweden_metadata[Sweden_metadata$source == "colon", ]
+VEO_IBD_metadata_colon <- VEO_IBD_metadata[VEO_IBD_metadata$source == "colon", ]
+PROTECT_metadata_colon <- PROTECT_metadata[PROTECT_metadata$source == "colon ", ]
+Metadata_all_colon <- Metadata_all[Metadata_all$source == "colon", ]
+
+RISK_metadata_colon 
+AIICD_metadata_colon 
+Denmark_metadata_colon 
+G155_metadata_colon
+reGRID_metadata_colon 
+#RISK2_metadata_colon #doesnt have any colon data
+#Southampton_metadata_colon #doesnt have any colon data
+Spain_metadata_colon 
+Sweden_metadata_colon 
+VEO_IBD_metadata_colon 
+PROTECT_metadata_colon 
+Metadata_all_colon
+
+RISK_colon_names <- RISK_metadata_colon$sample
+AIICD_colon_names <- AIICD_metadata_colon$sample
+Denmark_colon_names <- Denmark_metadata_colon$sample
+G155_colon_names <- G155_metadata_colon$sample
+reGRID_colon_names <- reGRID_metadata_colon$sample
+#RISK2_metadata_colon #doesnt have any colon data
+#Southampton_metadata_colon #doesnt have any colon data
+Spain_colon_names <- Spain_metadata_colon$sample
+Sweden_colon_names <- Sweden_metadata_colon$sample
+VEO_IBD_colon_names <- VEO_IBD_metadata_colon$sample
+PROTECT_colon_names <- PROTECT_metadata_colon$sample
+Metadata_colon_names <- Metadata_all_colon$sample
+
+
+RISK_colon <- RISK[, colnames(RISK) %in% RISK_colon_names]
+RISK_colon <- cbind(RISK[, 1, drop = FALSE], RISK_colon)
+AIICD_colon <- AIICD[, colnames(AIICD) %in% AIICD_colon_names]
+AIICD_colon <- cbind(AIICD[, 1, drop = FALSE], AIICD_colon)
+Denmark_colon <- Denmark[, colnames(Denmark) %in% Denmark_colon_names]
+Denmark_colon <- cbind(Denmark[, 1, drop = FALSE], Denmark_colon)
+G155_colon <- G155[, colnames(G155) %in% G155_colon_names]
+G155_colon <- cbind(G155[, 1, drop = FALSE], G155_colon)
+reGRID_colon <- reGRID[, colnames(reGRID) %in% reGRID_colon_names]
+reGRID_colon <- cbind(reGRID[, 1, drop = FALSE], reGRID_colon)
+#RISK2_colon <- RISK2[, colnames(RISK2) %in% RISK2_sample_names]
+Sweden_colon <- Sweden[, colnames(Sweden) %in% Sweden_colon_names]
+Sweden_colon <- cbind(Sweden[, 1, drop = FALSE], Sweden_colon)
+VEO_IBD_colon <- VEO_IBD[, colnames(VEO_IBD) %in% VEO_IBD_colon_names]
+VEO_IBD_colon <- cbind(VEO_IBD[, 1, drop = FALSE], VEO_IBD_colon)
+#Southampton_colon <- Southampton[, colnames(Southampton) %in% Southampton_sample_names]
+
+
+```
+
+
+#SUBSET METADATA BASED ON INTESTINAL TISSUE SAMPLES AND GENERATE SAMPLE NAMES TO REORDER COUNTS TABLE
+
+```{r}
+
+#RISK DOES NOT HAVE INTESTINAL DATA 
+# AIICD DOES NOT HAVE INTESTINAL DATA 
+# Denmark DOES NOT HAVE INTESTINAL DATA 
+# G155 DOES NOT HAVE INTESTINAL DATA 
+# Spain DOES NOT HAVE INTESTINAL DATA 
+# Sweden DOES NOT HAVE INTESTINAL DATA 
+# VEO_IBD DOES NOT HAVE INTESTINAL DATA 
+# PROTECT DOES NOT HAVE INTESTINAL DATA 
+
+
+reGRID_metadata_int <- reGRID_metadata[reGRID_metadata$source == "intestine" & (reGRID_metadata$activity == "Active" | is.na(reGRID_metadata$activity)), ] 
+#reGRID_metadata_int <- reGRID_metadata_int[complete.cases(reGRID_metadata_int$activity), ]
+RISK2_metadata_int <-  RISK2_metadata[RISK2_metadata$source == "intestine", ]
+Southampton_metadata_int <- Southampton_metadata[Southampton_metadata$source == "intestine", ] 
+Metadata_all_int <-Metadata_all[Metadata_all$source == "intestine", ]
+
+reGRID_int_names <- reGRID_metadata_int$sample
+RISK2_int_names <- RISK2_metadata_int$sample
+Southampton_int_names <- Southampton_metadata_int$sample
+Metadata_int_names <- Metadata_all_int$sample
+
+reGRID_int <- reGRID[, colnames(reGRID) %in% reGRID_int_names]
+reGRID_int <- cbind(reGRID[, 1, drop = FALSE], reGRID_int)
+
+RISK2_int <- RISK2[, colnames(RISK2) %in% RISK2_int_names]
+RISK2_int <- cbind(RISK2[, 2, drop = FALSE], RISK2_int)
+
+Southampton_int <- Southampton[, colnames(Southampton) %in% Southampton_int_names]
+Southampton_int <- cbind(Southampton[, 1, drop = FALSE], Southampton_int)
+
+
+reGRID_metadata_int
+RISK2_metadata_int 
+Southampton_metadata_int
+Metadata_all_int
+
+reGRID_int
+Southampton_int
+RISK2_int
+
+```
+
+
+
+#MAKE SURE ORDERING OF THE METADATA IS THE SAME AS THE ORDERING OF THE COUNTS
+
+```{r}
+identical(RISK_colon_names, colnames(RISK_colon)[-1])
+identical(AIICD_colon_names, colnames(AIICD_colon)[-1])
+identical(Sweden_colon_names, colnames(Sweden_colon)[-1])
+reGRID_colon <- reGRID_colon[, c(1, match(reGRID_colon_names, names(reGRID_colon)[-1]) + 1)]
+identical(reGRID_colon_names, colnames(reGRID_colon)[-1])
+identical(RISK2_int_names, colnames(RISK2_int)[-1])
+#colnames(Southampton) <- gsub("\\.", " ", colnames(Southampton))
+identical(Southampton_int_names, colnames(Southampton_int)[-1])
+
+```
+
+
+#RUN DESEQ2 ON COLON TISSUE SAMPLES
+
+```{r}
+library(DESeq2)
+
+##########
+
+RISK_colon <- as.data.frame(RISK_colon)
+dds_RISK_colon <- DESeqDataSetFromMatrix(countData = RISK_colon,
+                                   colData = RISK_metadata,
+                                   design = ~disease, tidy = TRUE)
+dds_RISK_colon$disease <- relevel(dds_RISK_colon$disease, ref = "HC")
+
+dds_RISK_colon <- DESeq(dds_RISK_colon)
+
+
+# Extract normalized count matrix
+RISK_normalized_colon <- counts(dds_RISK_colon, normalized = TRUE)
+
+res_RISK_colon <- results(dds_RISK_colon) #apply shrinkage to improve accuracy of estimated fold change. lowly expressed genes tend to have high relatively levels of variability.
+
+##########
+
+AIICD_colon <- as.data.frame(AIICD_colon)
+dds_AIICD_colon <- DESeqDataSetFromMatrix(countData = AIICD_colon,
+                                   colData = AIICD_metadata_colon,
+                                   design = ~disease, tidy = TRUE)
+dds_AIICD_colon$disease <- relevel(dds_AIICD_colon$disease, ref = "Normal")
+dds_AIICD_colon <- DESeq(dds_AIICD_colon)
+
+# Extract normalized count matrix
+AIICD_normalized_colon <- counts(dds_AIICD_colon, normalized = TRUE)
+
+res_AIICD_colon <- results(dds_AIICD_colon)
+
+##########
+
+G155_colon <- as.data.frame(G155_colon)
+dds_G155_colon <- DESeqDataSetFromMatrix(countData = G155_colon,
+                                   colData = G155_metadata_colon,
+                                   design = ~1, tidy = TRUE)
+
+dds_G155_colon <- DESeq(dds_G155_colon)
+
+# Extract normalized count matrix
+G155_normalized_colon <- counts(dds_G155_colon, normalized = TRUE)
+
+res_G155_colon <- results(dds_G155_colon)
+
+##########
+
+reGRID_colon[, -1] <- lapply(reGRID_colon[, -1], function(x) as.integer(round(x)))
+
+
+reGRID_colon <- reGRID_colon[, -which(colnames(reGRID_colon) == "MSCCR_reGRID_1_Biopsy_3")] #was messing things up bc for some reason an intestine column name came into the colon df
+
+dds_reGRID_colon <- DESeqDataSetFromMatrix(countData = reGRID_colon,
+                                   colData = reGRID_metadata_colon,
+                                   design = ~disease, tidy = TRUE)
+dds_reGRID_colon$disease <- relevel(dds_reGRID_colon$disease, ref = "HC")
+
+dds_reGRID_colon <- DESeq(dds_reGRID_colon)
+
+# Extract normalized count matrix
+reGRID_normalized_colon <- counts(dds_reGRID_colon, normalized = TRUE)
+
+res_reGRID_colon <- results(dds_reGRID_colon)
+
+##########
+
+Sweden_colon <- as.data.frame(Sweden_colon)
+dds_Sweden_colon <- DESeqDataSetFromMatrix(countData = Sweden_colon,
+                                   colData = Sweden_metadata_colon,
+                                   design = ~disease, tidy = TRUE)
+dds_Sweden_colon$disease <- relevel(dds_Sweden_colon$disease, ref = "HC")
+
+dds_Sweden_colon <- DESeq(dds_Sweden_colon)
+
+# Extract normalized count matrix
+Sweden_normalized_colon <- counts(dds_Sweden_colon, normalized = TRUE)
+
+res_Sweden_colon <- results(dds_Sweden_colon)
+
+```
+
+#RUN DESEQ2 ON INTESTINAL TISSUE SAMPLES (STILL HAVE TO DO THIS FOR RISK2)
+
+```{r}
+library(DESeq2)
+
+##########
+
+#reGRID_int$Genes <- rownames(reGRID_int)
+#rownames(reGRID_int) <- NULL
+#reGRID_int <-reGRID_int[, c(ncol(reGRID_int), 1:(ncol(reGRID_int)-1))]
+reGRID_int[, -1] <- lapply(reGRID_int[, -1], function(x) as.integer(round(x)))
+#reGRID_int <- reGRID_int[, !grepl("MSCCR_reGRID_1_Biopsy_3\\.1", names(reGRID_int))]
+
+dds_reGRID_int <- DESeqDataSetFromMatrix(countData = reGRID_int,
+                                   colData = reGRID_metadata_int,
+                                   design = ~disease, tidy = TRUE)
+dds_reGRID_int$disease <- relevel(dds_reGRID_int$disease, ref = "HC")
+
+dds_reGRID_int <- DESeq(dds_reGRID_int)
+
+# Extract normalized count matrix
+reGRID_normalized_int <- counts(dds_reGRID_int, normalized = TRUE)
+
+res_reGRID_int <- results(dds_reGRID_int)
+
+##########
+
+
+dds_Southampton_int <- DESeqDataSetFromMatrix(countData = Southampton_int,
+                                   colData = Southampton_metadata_int,
+                                   design = ~disease, tidy = TRUE)
+dds_Southampton_int$disease <- relevel(dds_Southampton_int$disease, ref = "HC")
+
+dds_Southampton_int <- DESeq(dds_Southampton_int)
+
+# Extract normalized count matrix
+Southampton_normalized_int <- counts(dds_Southampton_int, normalized = TRUE)
+
+res_Southampton_int <- results(dds_Southampton_int)
+
+```
+
+```{r}
+#COLON
+res_RISK_colon <- as.data.frame(res_RISK_colon)
+res_AIICD_colon <- as.data.frame(res_AIICD_colon)
+res_G155_colon <- as.data.frame(res_G155_colon)
+res_reGRID_colon <- as.data.frame(res_reGRID_colon)
+res_Sweden_colon <- as.data.frame(res_Sweden_colon)
+
+res_RISK_colon <- tibble::rownames_to_column(res_RISK_colon, var = "NCBI_ID")
+res_AIICD_colon <- tibble::rownames_to_column(res_AIICD_colon, var = "external_gene_name")
+res_G155_colon <- tibble::rownames_to_column(res_G155_colon, var = "entrez_gene_id")
+res_reGRID_colon <- tibble::rownames_to_column(res_reGRID_colon, var = "entrez_gene_id")
+res_Sweden_colon <- tibble::rownames_to_column(res_Sweden_colon, var = "entrez_gene_id")
+
+#INTESTINE
+res_reGRID_int <- as.data.frame(res_reGRID_int)
+res_Southampton_int <- as.data.frame(res_Southampton_int)
+
+
+res_reGRID_int <- tibble::rownames_to_column(res_reGRID_int, var = "entrez_gene_id")
+res_Southampton_int <- tibble::rownames_to_column(res_Southampton_int, var = "external_gene_name")
+
+
+res_RISK_colon 
+res_AIICD_colon 
+res_G155_colon 
+res_reGRID_colon 
+res_Sweden_colon
+res_reGRID_int
+res_Southampton_int
+```
+
+```{r}
+library("biomaRt")
+BiocManager::install("ensembl")
+#library(ensembl)
+human <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+#mouse
+gene_ids <- getBM(attributes=c("ensembl_gene_id", "entrezgene_id", "description", "external_gene_name"), mart=human)
+gene_ids
+head(gene_ids)
+```
+
+```{r}
+library(dplyr)
+library(tibble)
+#res_RISK_colon <- tibble::rownames_to_column(res_RISK_colon, var = "NCBI_ID")
+res_RISK_colon$NCBI_ID <- as.integer(res_RISK_colon$NCBI_ID)
+res_RISK_sig_colon <- subset(res_RISK_colon, pvalue < 0.05)
+# Merge dataframes based on entrez_gene_id using dplyr's left_join
+merged_RISK_colon <- left_join(res_RISK_sig_colon, gene_ids, by = c("NCBI_ID" = "entrezgene_id"))
+
+merged_RISK_colon <- subset(merged_RISK_colon, select = c((ncol(merged_RISK_colon) - 2):ncol(merged_RISK_colon), 1:(ncol(merged_RISK_colon) - 3)))
+
+res_RISK_sig_colon <- arrange(merged_RISK_colon, log2FoldChange)
+res_RISK_sig_colon
+sum(is.na(res_RISK_sig_colon$ensembl_gene_id))
+#2811 NA rows out of 16618 rows, 16.9% pseudogene
+
+up_RISK_colon <- subset(res_RISK_sig_colon, log2FoldChange > 0)
+up_RISK_colon <- up_RISK_colon[order(-up_RISK_colon$log2FoldChange), ]
+down_RISK_colon <- subset(res_RISK_sig_colon, log2FoldChange < 0)
+
+```
+
+
+```{r}
+library(dplyr)
+
+#res_AIICD <- tibble::rownames_to_column(res_AIICD, var = "external_gene_name")
+res_AIICD_sig_colon <- subset(res_AIICD_colon, pvalue < 0.05)
+res_AIICD_sig_colon <- arrange(res_AIICD_sig_colon, log2FoldChange)
+#head(res_RISK_sig)
+
+res_AIICD_sig_colon
+
+up_AIICD_colon <- subset(res_AIICD_sig_colon, log2FoldChange > 0)
+up_AIICD_colon <- up_AIICD_colon[order(-up_AIICD_colon$log2FoldChange), ]
+down_AIICD_colon <- subset(res_AIICD_sig_colon, log2FoldChange < 0)
+
+```
+
+
+```{r}
+library(dplyr)
+
+res_G155_colon$entrez_gene_id <- sub("\\..*", "", res_G155_colon$entrez_gene_id)
+res_G155_sig_colon <- subset(res_G155_colon, pvalue < 0.05)
+res_G155_sig_colon <- arrange(res_G155_sig_colon, log2FoldChange)
+
+
+res_G155_sig_colon <- left_join(res_G155_sig_colon, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+res_G155_sig_colon <- subset(res_G155_sig_colon, select = c((ncol(res_G155_sig_colon) - 2):ncol(res_G155_sig_colon), 1:(ncol(res_G155_sig_colon) - 3)))
+
+res_G155_sig_colon
+
+
+sum(is.na(res_G155_sig_colon$entrezgene_id))
+#499 NA rows out of 16600, 3% pseudogene
+
+up_G155_colon <- subset(res_G155_sig_colon, log2FoldChange > 0)
+up_G155_colon <- up_G155_colon[order(-up_G155_colon$log2FoldChange), ]
+down_G155_colon <- subset(res_G155_sig_colon, log2FoldChange < 0)
+```
+
+
+```{r}
+
+#res_reGRID_colon <- tibble::rownames_to_column(res_reGRID_colon, var = "entrez_gene_id")
+res_reGRID_sig_colon <- subset(res_reGRID_colon, pvalue < 0.05)
+res_reGRID_sig_colon <- arrange(res_reGRID_sig_colon, log2FoldChange)
+
+res_reGRID_sig_colon <- left_join(res_reGRID_sig_colon, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+res_reGRID_sig_colon <- subset(res_reGRID_sig_colon, select = c((ncol(res_reGRID_sig_colon) - 2):ncol(res_reGRID_sig_colon), 1:(ncol(res_reGRID_sig_colon) - 3)))
+res_reGRID_sig_colon
+
+sum(is.na(res_reGRID_sig_colon$entrezgene_id))
+
+#7538 out of 21593 rows are NA,34% pseudogene?
+
+
+up_reGRID_colon <- subset(res_reGRID_sig_colon, log2FoldChange > 0)
+up_reGRID_colon <- up_reGRID_colon[order(-up_reGRID_colon$log2FoldChange), ]
+down_reGRID_colon <- subset(res_reGRID_sig_colon, log2FoldChange < 0)
+
+#INTESTINE
+
+
+res_reGRID_sig_int <- subset(res_reGRID_int, pvalue < 0.05)
+res_reGRID_sig_int <- arrange(res_reGRID_sig_int, log2FoldChange)
+
+res_reGRID_sig_int <- left_join(res_reGRID_sig_int, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+res_reGRID_sig_int <- subset(res_reGRID_sig_int, select = c((ncol(res_reGRID_sig_int) - 2):ncol(res_reGRID_sig_int), 1:(ncol(res_reGRID_sig_int) - 3)))
+res_reGRID_sig_int
+
+sum(is.na(res_reGRID_sig_int$entrezgene_id))
+
+#7538 out of 21593 rows are NA,34% pseudogene?
+
+
+up_reGRID_int <- subset(res_reGRID_sig_int, log2FoldChange > 0)
+up_reGRID_int <- up_reGRID_int[order(-up_reGRID_int$log2FoldChange), ]
+down_reGRID_int <- subset(res_reGRID_sig_int, log2FoldChange < 0)
+
+```
+```{r}
+res_Southampton_sig_int <- subset(res_Southampton_int, pvalue < 0.05)
+res_Southampton_sig_int <- arrange(res_Southampton_sig_int, log2FoldChange)
+
+res_Southampton_sig_int
+
+up_Southampton_int <- subset(res_Southampton_sig_int, log2FoldChange > 0)
+up_Southampton_int <- up_Southampton_int[order(-up_Southampton_int$log2FoldChange), ]
+down_Southampton_int <- subset(res_Southampton_sig_int, log2FoldChange < 0)
+```
+
+```{r}
+#res_Sweden_colon <- tibble::rownames_to_column(res_Sweden_colon, var = "entrez_gene_id")
+res_Sweden_sig_colon <- subset(res_Sweden_colon, pvalue < 0.05)
+res_Sweden_sig_colon <- arrange(res_Sweden_sig_colon, log2FoldChange)
+
+res_Sweden_sig_colon <- left_join(res_Sweden_sig_colon, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+#res_Sweden_sig_colon <- subset(res_Sweden_sig_colon, select = c((ncol(res_Sweden_sig_colon) - 2):ncol(res_Sweden_sig_colon), 1:(ncol(res_Sweden_sig_colon) - 3)))
+res_Sweden_sig_colon
+
+sum(is.na(res_Sweden_sig_colon$entrezgene_id))
+
+#279 out of 2868 rows are NA, 9.7% pseudogene?
+
+up_Sweden_colon <- subset(res_Sweden_sig_colon, log2FoldChange > 0)
+up_Sweden_colon <- up_Sweden_colon[order(-up_Sweden_colon$log2FoldChange), ]
+down_Sweden_colon <- subset(res_Sweden_sig_colon, log2FoldChange < 0)
+```
+
+```{r}
+write.csv(res_AIICD_sig_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/res_AIICD_sig_colon.csv", row.names = FALSE) #does not have any ZIP/ZNT transporters, 33 participants
+write.csv(res_reGRID_sig_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/res_reGRID_sig_colon.csv", row.names = FALSE) #does not have ZIP4
+write.csv(res_RISK_sig_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/res_RISK_sig_colon.csv", row.names = FALSE) #ZIP4 is downregulated
+write.csv(res_Sweden_sig_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/res_Sweden_sig_colon.csv", row.names = FALSE) #does not have ZIP4
+write.csv(res_reGRID_sig_int, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/res_reGRID_sig_int.csv", row.names = FALSE) 
+write.csv(res_Southampton_sig_int, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/res_Southampton_sig_int.csv", row.names = FALSE) 
+
+
+
+```
+
+
+
+
+```{r}
+Meta_common_colon_up[!duplicated(Meta_common_colon_up$external_gene_name), ]
+```
+
+
+```{r}
+Meta_common_int_colon_up
+Meta_common_colon_up
+Meta_common_int_up
+Meta_common_int_colon_down
+Meta_common_colon_down
+Meta_common_int_down
+
+length(common_up)
+length(common_down)
+  
+```
+
+
+
+```{r}
+res_AIICD_sig_colon 
+res_reGRID_sig_colon
+res_RISK_sig_colon
+res_Sweden_sig_colon
+res_reGRID_sig_int
+res_Southampton_sig_int
+Meta_all_colon
+Meta_all_int
+Meta_up_colon
+Meta_down_colon
+Meta_up_int
+Meta_down_int
+```
+
+
+
+#CONDENSE ONLY THE ROWS THAT I WANT FOR EACH UP/DOWN DATAFRAME AND CONCATENATE TOGETHER
+
+```{r}
+
+cols_to_keep <- c("external_gene_name", "log2FoldChange", "pvalue")
+up_RISK_colon <- up_RISK_colon[, cols_to_keep, drop = FALSE]
+down_RISK_colon <- down_RISK_colon[, cols_to_keep, drop = FALSE]
+up_AIICD_colon <- up_AIICD_colon[, cols_to_keep, drop = FALSE]
+down_AIICD_colon <- down_AIICD_colon[, cols_to_keep, drop = FALSE]
+up_G155_colon <- up_G155_colon[, cols_to_keep, drop = FALSE]
+down_G155_colon <- down_G155_colon[, cols_to_keep, drop = FALSE]
+up_reGRID_colon <- up_reGRID_colon[, cols_to_keep, drop = FALSE]
+down_reGRID_colon <- down_reGRID_colon[, cols_to_keep, drop = FALSE]
+up_Sweden_colon <- up_Sweden_colon[, cols_to_keep, drop = FALSE]
+down_Sweden_colon <- down_Sweden_colon[, cols_to_keep, drop = FALSE]
+
+
+up_RISK_colon <- up_RISK_colon[complete.cases(up_RISK_colon), ]
+up_RISK_colon <- unique(up_RISK_colon)
+down_RISK_colon <- down_RISK_colon[complete.cases(down_RISK_colon), ]
+down_RISK_colon <- unique(down_RISK_colon)
+
+up_AIICD_colon <- up_AIICD_colon[complete.cases(up_AIICD_colon), ]
+up_AIICD_colon <- unique(up_AIICD_colon)
+down_AIICD_colon <- down_AIICD_colon[complete.cases(down_AIICD_colon), ]
+down_AIICD_colon <- unique(down_AIICD_colon)
+
+up_G155_colon <- up_G155_colon[complete.cases(up_G155_colon), ]
+up_G155_colon <- unique(up_G155_colon)
+down_G155_colon <- down_G155_colon[complete.cases(down_G155_colon), ]
+down_G155_colon <- unique(down_G155_colon)
+
+up_reGRID_colon <- up_reGRID_colon[complete.cases(up_reGRID_colon), ]
+up_reGRID_colon <- unique(up_reGRID_colon)
+down_reGRID_colon <- down_reGRID_colon[complete.cases(down_reGRID_colon), ]
+down_reGRID_colon <- unique(down_reGRID_colon)
+
+up_Sweden_colon <- up_Sweden_colon[complete.cases(up_Sweden_colon), ]
+up_Sweden_colon <- unique(up_Sweden_colon)
+down_Sweden_colon <- down_Sweden_colon[complete.cases(down_Sweden_colon), ]
+down_Sweden_colon <- unique(down_Sweden_colon)
+```
+
+```{r}
+#removed G155 from the aggregation of up and downregulated genes because the study did not contain any healthy cohort samples
+colon_up_all <- rbind(up_RISK_colon, up_AIICD_colon, up_reGRID_colon, up_Sweden_colon)
+colon_down_all <- rbind(down_RISK_colon, down_AIICD_colon, down_reGRID_colon, down_Sweden_colon)
+meta_all <-  rbind(colon_down_all, colon_up_all)
+
+colon_up_all
+colon_down_all
+
+write.csv(colon_up_all, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/colon_up_all.csv", row.names = FALSE)
+write.csv(colon_down_all, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/colon_down_all.csv", row.names = FALSE)
+
+```
+
+```{r}
+meta_all
+```
+
+
+
+
+
+```{r fig.height=6}
+library(ggrepel)
+library(EnhancedVolcano)
+
+#ZINC DEFICIENT MICE VERSUS HEALTHY MICE CONTROLS ON CHOW DIET. Zn Deficiency is all dietary in this experiment 
+
+#options(repr.plot.width = 5, repr.plot.height = 5)
+
+EnhancedVolcano(meta_all,
+    lab = meta_all$external_gene_name,
+    x = 'log2FoldChange',
+    y = 'pvalue',
+    xlim = c(-8,8),
+    pCutoff = 10e-5,
+    FCcutoff = 0.3,
+    pointSize = 2,
+    labSize = 5,
+    legendPosition = 'right',
+    legendLabSize = 10,
+    legendIconSize = 5,
+    title = 'Differential Expression of Colon Tissue Influenced by UC/CD in Humans', 
+    subtitle = "Differential expression",
+    axisLabSize = 15
+    )
+
+
+
+```
+
+#COMPARE METATRANSCRIPTOMICS UPREGULATED TO UPREGULATED ZNDEF. COMPARE METATRANSCRIPTOMICS DOWNREGULATED OT DOWNREGULATED ZNDEF
+
+```{r}
+
+
+
+up_ZnDef_int
+down_ZnDef_int
+
+up_IL10_colon <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/up_IL10_colon.csv', header = TRUE)
+down_IL10_colon <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/down_IL10_colon.csv', header = TRUE)
+up_ZnDef_colon <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/up_ZnDef_colon.csv', header = TRUE)
+down_ZnDef_colon <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/down_ZnDef_colon.csv', header = TRUE)
+Mouse_Human <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Mouse_Human_Homologies.csv', header = TRUE)
+#up_IL10_colon
+#down_IL10_colon
+up_ZnDef_colon
+down_ZnDef_colon
+```
+
+#CONVERT ZNDEF GENE NAMES FROM MOUSE TO HUMAN ANALOGS 
+```{r}
+
+
+up_ZnDef_colon_human  <-  up_ZnDef_colon %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+up_ZnDef_colon_human <- up_ZnDef_colon_human[complete.cases(up_ZnDef_colon_human$Human), ]
+up_ZnDef_colon_human
+
+down_ZnDef_colon_human  <-  down_ZnDef_colon %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+down_ZnDef_colon_human <- down_ZnDef_colon_human[complete.cases(down_ZnDef_colon_human$Human), ]
+down_ZnDef_colon_human
+
+up_ZnDef_int_human  <-  up_ZnDef_int %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+up_ZnDef_int_human <- up_ZnDef_int_human[complete.cases(up_ZnDef_int_human$Human), ]
+up_ZnDef_int_human
+
+down_ZnDef_int_human  <-  down_ZnDef_int %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+down_ZnDef_int_human <- down_ZnDef_int_human[complete.cases(down_ZnDef_int_human$Human), ]
+down_ZnDef_int_human
+
+```
+
+
+
+#CONVERT IL10 GENE NAMES FROM MOUSE TO HUMAN ANALOGS 
+```{r}
+
+
+up_IL10_colon_human  <-  up_IL10_colon %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+up_IL10_colon_human <- up_IL10_colon_human[complete.cases(up_IL10_colon_human$Human), ]
+up_IL10_colon_human
+
+down_IL10_colon_human  <-  down_IL10_colon %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+down_IL10_colon_human <- down_IL10_colon_human[complete.cases(down_IL10_colon_human$Human), ]
+down_IL10_colon_human
+```
+
+#ZNDEF + METATRANSCRIPTOMICS
+
+```{r}
+common_elements_up <- intersect(colon_up_all$external_gene_name, up_ZnDef_colon_human$Human)
+common_elements_down <- intersect(colon_down_all$external_gene_name, down_ZnDef_colon_human$Human)
+
+
+down_ZnDef_colon_human_common <- down_ZnDef_colon_human[down_ZnDef_colon_human$Human %in% common_elements_down, ]
+up_ZnDef_colon_human_common <- up_ZnDef_colon_human[up_ZnDef_colon_human$Human %in% common_elements_up, ]
+colon_up_all_common <- colon_up_all[colon_up_all$external_gene_name %in% common_elements_up, ]
+colon_down_all_common <- colon_down_all[colon_down_all$external_gene_name %in% common_elements_down, ]
+
+
+names(colon_up_all_common)[names(colon_up_all_common) == "external_gene_name"] <- "Human"
+names(colon_down_all_common)[names(colon_down_all_common) == "external_gene_name"] <- "Human"
+
+down_ZnDef_colon_human_common
+up_ZnDef_colon_human_common
+colon_up_all_common
+colon_down_all_common
+
+
+merged_ZnDef_meta_colon_down <- merge(down_ZnDef_colon_human_common, colon_down_all_common, by = "Human", all = FALSE)
+#merged_ZnDef_meta_colon_down <- merged_ZnDef_meta_colon_down[!duplicated(merged_ZnDef_meta_colon_down$Human), ]
+
+merged_ZnDef_meta_colon_up <- merge(up_ZnDef_colon_human_common, colon_up_all_common, by = "Human", all = FALSE)
+#merged_ZnDef_meta_colon_up <- merged_ZnDef_meta_colon_up[!duplicated(merged_ZnDef_meta_colon_up$Human), ]
+
+
+write.csv(merged_ZnDef_meta_colon_down, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/merged_ZnDef_meta_colon_down.csv", row.names = FALSE)
+write.csv(merged_ZnDef_meta_colon_up, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/merged_ZnDef_meta_colon_up.csv", row.names = FALSE)
+```
+
+```{r}
+AMY_down <- subset(merged_ZnDef_meta_colon_down, grepl("^AMY", Human))
+
+AMY_down <- AMY_down[!duplicated(AMY_down$Human), ]
+AMY_down
+
+write.csv(AMY_down, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/AMY_down_ZnDef_Human.csv", row.names = FALSE)
+
+#merged_ZnDef_meta_colon_down$Human
+```
+
+
+```{r}
+library("ggplot2")
+library("ggpubr")
+AMY_down_long_format <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/AMY_Down_long_format.csv', header = TRUE)
+
+AMY_lollipop <- ggdotchart(AMY_down_long_format, x = "Human", y = "L2FC",
+           color = "Group",
+           group = "Group" ,# Color by groups
+           palette = c("#00AFBB", "#E7B800", "#FC4E07"), # Custom color palette
+           sorting = "descending",                       # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           add.params = list(color = "lightgray", size = 2), # Change segment color and size
+           #color = "green",                              # Order by groups
+           dot.size = 6,                                 # Large dot size
+           label = round(AMY_down_long_format$L2FC,1),                        # Add mpg values as dot labels
+           font.label = list(color = "white", size =8, 
+                             vjust = 0.5),               # Adjust label parameters
+           ggtheme = theme_pubr()                        # ggplot2 theme
+           )+
+  
+  geom_hline(yintercept = 0, linetype = 1, color = "lightgray") + 
+  ggtitle("Commonly Downregulated Amylase Genes\nin human IBD and Zn Deficient Mice") +
+labs(
+  x = "Gene Name",
+  y = "Log2 Fold-Change") +
+  ylim(-4, 3)
+
+
+ggsave("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/AMY_ZnDef_humanIBD.png", AMY_lollipop, width = 6, height = 6, units = "in", dpi = 300)
+AMY_lollipop
+```
+
+
+```{r}
+ZnDef_colon_sig_merged_human <- ZnDef_colon_sig_merged %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+ZnDef_colon_sig_merged_human <- ZnDef_colon_sig_merged_human[complete.cases(ZnDef_colon_sig_merged_human$Human), ] 
+ZnDef_colon_sig_merged_human
+
+```
+
+
+
+
+```{r}
+
+
+x <- list(
+  ZincDef = ZnDef_colon_sig_merged_human$Human, 
+  humanIBD = meta_all$external_gene_name
+  )
+library(ggvenn)
+venn <- ggvenn(
+  x, 
+  fill_color = c("#0073C2FF", "#EFC000FF"),
+  stroke_size = 0.8, set_name_size = 6, text_size = 6
+  ) +  ggtitle("Differentially Expressed Genes\nin The Colon of Zinc Deficient Mice\nand Human IBD in Comparison to Healthy Controls") + 
+  theme(plot.title = element_text(hjust = 0.5, 
+                                          margin = margin(b = 20),
+                                          face = "bold",
+                                          size = 16,
+                                          lineheight = 0.8)) 
+  
+  
+ 
+
+venn
+ggsave("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/SharedDifGenes_ZnDef_humanIBD.png", venn, width = 15, height = 6, units = "in", dpi = 300)
+```
+
+```{r}
+?ggven
+```
+
+```{r}
+unique(merged_ZnDef_meta_colon_down$Human)
+```
+
+
+#IL10 + METATRANSCRIPTOMICS
+
+```{r}
+
+```
+
+
+```{r}
+common_elements_upmeta_downIL10 <- intersect(colon_up_all$external_gene_name, down_IL10_colon_human$Human)
+common_elements_downmeta_upIL10 <- intersect(colon_down_all$external_gene_name, up_IL10_colon_human$Human)
+common_elements_upmeta_downIL10 
+common_elements_downmeta_upIL10
+
+down_IL10_up_human_common <- down_IL10_colon_human[down_IL10_colon_human$Human %in% common_elements_upmeta_downIL10, ]
+up_IL10_down_human_common <- up_IL10_colon_human[up_IL10_colon_human$Human %in% common_elements_downmeta_upIL10, ]
+Meta_up_all_common <- colon_up_all[colon_up_all$external_gene_name %in% common_elements_upmeta_downIL10, ]
+Meta_down_all_common <- colon_down_all[colon_down_all$external_gene_name %in% common_elements_downmeta_upIL10, ]
+
+
+names(Meta_up_all_common)[names(Meta_up_all_common) == "external_gene_name"] <- "Human"
+names(Meta_down_all_common)[names(Meta_down_all_common) == "external_gene_name"] <- "Human"
+
+down_IL10_up_human_common
+up_IL10_down_human_common
+Meta_up_all_common
+Meta_down_all_common
+
+
+merged_IL10up_metadown <- merge(down_IL10_up_human_common, Meta_up_all_common, by = "Human", all = FALSE)
+merged_IL10down_metaup <- merge(up_IL10_down_human_common, Meta_down_all_common, by = "Human", all = FALSE)
+
+
+write.csv(merged_IL10up_metadown, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/merged_IL10up_metadown.csv", row.names = FALSE)
+write.csv(merged_IL10down_metaup, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/merged_IL10down_metaup.csv", row.names = FALSE)
+```
+
+
+```{r}
+colon_up_all$external_gene_name
+```
+
+
+
+
+```{r}
+#install.packages("ggpubr")
+library(ggpubr)
+library(ggplot2)
+library(dplyr)
+
+Metadata_all <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Transcriptomics_Metadata_All.csv', header = TRUE)
+
+#Colon vs Intestine 
+
+variable_colors <- c("colon" = "lightgreen", "intestine" = "plum")
+
+ggplot(Metadata_all, aes(x = source, fill = source)) +
+  geom_bar(stat = "count", color = "black") + 
+  scale_fill_manual(values = variable_colors) +
+  labs(
+    title = "Tissue Sources From Transcriptomic Metadata",
+    x = "Source of Transcriptomic Data",
+    y = "Count",
+    caption = "Source: Metadata Aggregated"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+variable_colors <- c("CC" = "#1f78b4", "UC" = "salmon", "CD" = "lightgreen", "IBD" = "plum", "HC" = "#6a3d9a", "Not IBD" = "#fdbf6f", "UC_treat" = "#ff7f00", "CD_treat" = "pink")
+
+#Disease States 
+
+df_counted <- Metadata_all %>%
+  group_by(disease) %>%
+  summarise(count = n()) %>%
+  arrange(count)
+
+# Reorder levels of 'variables' based on counts
+Metadata_all$disease <- factor(Metadata_all$disease, levels = df_counted$disease)
+
+ggplot(Metadata_all, aes(x = disease, fill = disease)) +
+  geom_bar(stat = "count", color = "black") + 
+  scale_fill_manual(values = variable_colors) +
+  scale_y_continuous(trans = "log2") +  # Set breaks for better readability
+  labs(
+    title = "Diseases Captured From Transcriptomic Metadata",
+    x = "Disease Diagnosis",
+    y = "Count(Log Scale)",
+    caption = "Source: Metadata Aggregated"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+  
+  )
+
+#Pediatric vs Adult
+
+variable_colors <- c("colon" = "#a6cee3", "intestine" = "lightyellow")
+
+ggplot(Metadata_all, aes(x = population, fill = source)) +
+  geom_bar(stat = "count", color = "black") + 
+  scale_fill_manual(values = variable_colors) +
+  labs(
+    title = "Populations of Transcriptomic Metadata",
+    x = "Population",
+    y = "Count",
+    caption = "Source: Metadata Aggregated"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+```
+
+#Normalize Data that has not been normalized using Deseq2. While I'm at it, I will be performing diffrential expression for the datasets that need normalization as well. 
+
+
+```{r}
+d <- plotCounts(dds_Sweden, gene=which.min(res_Sweden_sig$padj), intgroup="disease", 
+                returnData=TRUE)
+library("ggplot2")
+ggplot(d, aes(x=disease, y=count)) + 
+  geom_point(position=position_jitter(w=0.1,h=0)) + 
+  scale_y_log10(breaks=c(25,100,400))
+```
+
+
+
+```{r}
+d <- plotCounts(dds_RISK, gene=which.min(res_RISK_sig$padj), intgroup="disease", 
+                returnData=TRUE)
+library("ggplot2")
+ggplot(d, aes(x=disease, y=count)) + 
+  geom_point(position=position_jitter(w=0.1,h=0)) + 
+  scale_y_log10(breaks=c(25,100,400))
+```
+
+
+```{r}
+d <- plotCounts(dds_Southampton, gene=which.min(res_Southampton$padj), intgroup="disease", 
+                returnData=TRUE)
+library("ggplot2")
+ggplot(d, aes(x=disease, y=count)) + 
+  geom_point(position=position_jitter(w=0.1,h=0)) + 
+  scale_y_log10(breaks=c(25,100,400))
+```
+
+```{r}
+which.min(res_Southampton$padj)
+```
+
+
+
+```{r}
+res <- results(dds_Southampton)
+plotMA(res, ylim=c(-2,2), main="apeglm")
+```
+
+#Convert IDs to Gene Names
+
+```{r}
+#normalized and differentially expression calculated datasets
+
+res_RISK <- as.data.frame(res_RISK)
+res_AIICD <- as.data.frame(res_AIICD)
+res_G155 <- as.data.frame(res_G155)
+res_reGRID <- as.data.frame(res_reGRID)
+res_Southampton <- as.data.frame(res_Southampton)
+res_Sweden <- as.data.frame(res_Sweden)
+
+head(res_RISK)
+head(res_AIICD)
+head(res_G155)
+head(res_reGRID)
+head(res_Southampton)
+head(res_Sweden)
+```
+
+
+```{r}
+library("biomaRt")
+#BiocManager::install("ensembl")
+#library(ensembl)
+#human <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+#mouse
+gene_ids <- getBM(attributes=c("ensembl_gene_id", "entrezgene_id", "description", "external_gene_name"), mart=human)
+gene_ids
+head(gene_ids)
+```
+
+
+```{r}
+library(dplyr)
+library(tibble)
+#res_RISK <- tibble::rownames_to_column(res_RISK, var = "NCBI_ID")
+res_RISK$NCBI_ID <- as.integer(res_RISK$NCBI_ID)
+res_RISK_sig <- subset(res_RISK, pvalue < 0.05)
+
+# Merge dataframes based on entrez_gene_id using dplyr's left_join
+merged_RISK <- left_join(res_RISK_sig, gene_ids, by = c("NCBI_ID" = "entrezgene_id"))
+
+merged_RISK <- subset(merged_RISK, select = c((ncol(merged_RISK) - 2):ncol(merged_RISK), 1:(ncol(merged_RISK) - 3)))
+
+res_RISK_sig <- arrange(merged_RISK, log2FoldChange)
+res_RISK_sig
+sum(is.na(res_RISK_sig$ensembl_gene_id))
+# 1655 NA rows out of 8909 rows, 18.6% pseudogene
+
+up_RISK <- subset(res_RISK_sig, log2FoldChange > 0)
+up_RISK <- up_RISK[order(-up_RISK$log2FoldChange), ]
+down_RISK <- subset(res_RISK_sig, log2FoldChange < 0)
+```
+
+```{r}
+library(dplyr)
+
+#res_AIICD <- tibble::rownames_to_column(res_AIICD, var = "external_gene_name")
+res_AIICD_sig <- subset(res_AIICD, pvalue < 0.05)
+res_AIICD_sig <- arrange(res_AIICD_sig, log2FoldChange)
+#head(res_RISK_sig)
+
+res_AIICD_sig
+
+up_AIICD <- subset(res_AIICD_sig, log2FoldChange > 0)
+up_AIICD <- up_AIICD[order(-up_AIICD$log2FoldChange), ]
+down_AIICD <- subset(res_AIICD_sig, log2FoldChange < 0)
+```
+
+```{r}
+library(dplyr)
+
+#res_G155 <- tibble::rownames_to_column(res_G155, var = "entrez_gene_id")
+
+
+#res_G155$entrez_gene_id <- sub("\\..*", "", res_G155$entrez_gene_id)
+res_G155_sig <- subset(res_G155, pvalue < 0.05)
+res_G155_sig <- arrange(res_G155_sig, log2FoldChange)
+
+
+res_G155_sig <- left_join(res_G155_sig, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+res_G155_sig <- subset(res_G155_sig, select = c((ncol(res_G155_sig) - 2):ncol(res_G155_sig), 1:(ncol(res_G155_sig) - 3)))
+
+res_G155_sig
+
+
+sum(is.na(res_G155_sig$entrezgene_id))
+#499 NA rows out of 16600, 3% pseudogene
+
+up_G155 <- subset(res_G155_sig, log2FoldChange > 0)
+up_G155 <- up_G155[order(-up_G155$log2FoldChange), ]
+down_G155 <- subset(res_G155_sig, log2FoldChange < 0)
+```
+
+```{r}
+
+
+#res_reGRID <- tibble::rownames_to_column(res_reGRID, var = "entrez_gene_id")
+res_reGRID_sig <- subset(res_reGRID, pvalue < 0.05)
+res_reGRID_sig <- arrange(res_reGRID_sig, log2FoldChange)
+
+res_reGRID_sig <- left_join(res_reGRID_sig, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+res_reGRID_sig <- subset(res_reGRID_sig, select = c((ncol(res_reGRID_sig) - 2):ncol(res_reGRID_sig), 1:(ncol(res_reGRID_sig) - 3)))
+res_reGRID_sig
+
+sum(is.na(res_reGRID_sig$entrezgene_id))
+
+#1112 out of 2175 rows are NA, 51.1% pseudogene?
+
+
+up_reGRID <- subset(res_reGRID_sig, log2FoldChange > 0)
+up_reGRID <- up_reGRID[order(-up_reGRID$log2FoldChange), ]
+down_reGRID <- subset(res_reGRID_sig, log2FoldChange < 0)
+```
+
+```{r}
+
+res_Southampton <- tibble::rownames_to_column(res_Southampton, var = "external_gene_name")
+res_Southampton_sig <- subset(res_Southampton, pvalue < 0.05)
+res_Southampton_sig <- arrange(res_Southampton, log2FoldChange)
+#head(res_RISK_sig)
+
+res_Southampton_sig
+
+up_Southampton <- subset(res_Southampton_sig, log2FoldChange > 0)
+up_Southampton <- up_Southampton[order(-up_Southampton$log2FoldChange), ]
+down_Southampton <- subset(res_Southampton_sig, log2FoldChange < 0)
+```
+
+```{r}
+#res_Sweden <- tibble::rownames_to_column(res_Sweden, var = "entrez_gene_id")
+res_Sweden_sig <- subset(res_Sweden, pvalue < 0.05)
+res_Sweden_sig <- arrange(res_Sweden_sig, log2FoldChange)
+
+res_Sweden_sig <- left_join(res_Sweden_sig, gene_ids, by = c("entrez_gene_id" = "ensembl_gene_id"))
+res_Sweden_sig <- subset(res_Sweden_sig, select = c((ncol(res_Sweden_sig) - 2):ncol(res_Sweden_sig), 1:(ncol(res_Sweden_sig) - 3)))
+res_Sweden_sig
+
+sum(is.na(res_Sweden_sig$entrezgene_id))
+
+#310 out of 3186 rows are NA, 9.7% pseudogene?
+
+up_Sweden <- subset(res_Sweden_sig, log2FoldChange > 0)
+up_Sweden <- up_Sweden[order(-up_Sweden$log2FoldChange), ]
+down_Sweden <- subset(res_Sweden_sig, log2FoldChange < 0)
+```
+
+
+
+#Look at all up/down regulated genes from each dataset
+
+```{r}
+up_RISK
+down_RISK
+up_AIICD
+down_AIICD
+up_G155
+down_G155
+up_reGRID
+down_reGRID
+up_Southampton
+down_Southampton
+up_Sweden
+down_Sweden
+
+```
+
+```{r}
+up_RISK_subset <- up_RISK[, c("external_gene_name", "log2FoldChange")]
+down_RISK_subset <-  down_RISK[, c("external_gene_name", "log2FoldChange")]
+up_AIICD_subset <- up_AIICD[, c("external_gene_name", "log2FoldChange")]
+down_AIICD_subset <- down_AIICD[, c("external_gene_name", "log2FoldChange")]
+up_G155_subset <- up_G155[, c("external_gene_name", "log2FoldChange")]
+down_G155_subset <- down_G155[, c("external_gene_name", "log2FoldChange")]
+up_reGRID_subset <- up_reGRID[, c("external_gene_name", "log2FoldChange")]
+down_reGRID_subset <- down_reGRID[, c("external_gene_name", "log2FoldChange")]
+up_Southampton_subset <- up_Southampton[, c("external_gene_name", "log2FoldChange")]
+down_Southampton_subset <- down_Southampton[, c("external_gene_name", "log2FoldChange")]
+up_Sweden_subset <- up_Sweden[, c("external_gene_name", "log2FoldChange")]
+down_Sweden_subset <- down_Sweden[, c("external_gene_name", "log2FoldChange")]
+
+
+up_RISK_subset 
+down_RISK_subset 
+up_AIICD_subset 
+down_AIICD_subset
+up_G155_subset 
+down_G155_subset 
+up_reGRID_subset 
+down_reGRID_subset 
+up_Southampton_subset 
+down_Southampton_subset 
+up_Sweden_subset 
+down_Sweden_subset 
+```
+
+```{r}
+dataframes_up <- list(up_RISK_subset$external_gene_name, 
+                   up_AIICD_subset$external_gene_name, 
+                   up_G155_subset$external_gene_name, 
+                   up_reGRID_subset$external_gene_name, 
+                   up_Southampton_subset$external_gene_name, 
+                   up_Sweden_subset$external_gene_name)
+
+
+occurrences_up <- table(unlist(dataframes_up))
+common_values_up <- names(occurrences_up[occurrences_up >= 6])
+common_values_up
+
+```
+
+
+```{r}
+
+dataframes_down <- list(down_RISK_subset$external_gene_name, 
+                   down_AIICD_subset$external_gene_name, 
+                   down_G155_subset$external_gene_name, 
+                   down_reGRID_subset$external_gene_name, 
+                   down_Southampton_subset$external_gene_name, 
+                   down_Sweden_subset$external_gene_name)
+
+occurrences_down <- table(unlist(dataframes_down))
+common_values_down <- names(occurrences_down[occurrences_down >= 6])
+common_values_down
+
+```
+
+
+```{r}
+
+up_all <- rbind(up_RISK_subset, up_AIICD_subset, up_G155_subset, up_reGRID_subset, up_Southampton_subset, up_Sweden_subset)
+up_all <- na.omit(up_all)
+down_all <- rbind(down_RISK_subset, down_AIICD_subset, down_G155_subset, down_reGRID_subset, down_Southampton_subset, down_Sweden_subset)
+down_all <- na.omit(down_all)
+
+
+
+intersection_up <- c("CFB", "DEFB103B", "DEFB4A", "DEFB4B", "GPSM3", "HLA-DOB", "LAIR1", "LINC02829", "LTA", "NLRP7", "NOTCH4", "PPP1R18", "RNU1-1", "RNU1-2",
+                     "RNU1-3","RNU1-4","RNU2-1","RNVU1-18","TRIM27","TRIM39","U2","VSTM1")    
+intersection_down <- c("ATAT1", "BAG6", "C6orf136", "CYP2D6", "DDAH2", "DDR1", "DHX16", "EGFL8", "GABBR1", "GOLGA6L10", "HCG25", "HLA-A", "HLA-DPA1",
+                     "HLA-DPB1","HLA-F", "HLA-F-AS1", "HSPA1A", "KIR2DL4", "LY6G5B", "MBOAT7", "MSH5", "NEU1", "POU5F1", "PPT2", "PRRT1", "RDH13", "RNF5",
+                     "RXRB","SAPCD1" ,"SERF1B","TAP1","TAS2R14","TMC4","TRIM10","TRIM31-AS1","UBD", "VARS2", "Y_RNA", "ZBTB22", "ZNF311")
+  
+intersection_up
+intersection_down
+```
+```{r}
+
+df_result <- data.frame(ID = integer(0), ColumnName = character(0), Value = numeric(0))
+
+for (value in intersection_up) {
+  # Check if the value is present in the 'ColumnName' column of df_main
+  rows <- up_all[up_all$external_gene_name == value, ]
+  
+  # If matching rows are found, append them to df_result
+  if (nrow(rows) > 0) {
+    df_result <- rbind(df_result, rows)
+  }
+}
+
+# Print the result
+print(df_result)
+write.csv(df_result, file = "common_up_log2FC.csv", row.names = FALSE)
+
+
+df_result <- data.frame(ID = integer(0), ColumnName = character(0), Value = numeric(0))
+
+for (value in intersection_down) {
+  # Check if the value is present in the 'ColumnName' column of df_main
+  rows <- down_all[down_all$external_gene_name == value, ]
+  
+  # If matching rows are found, append them to df_result
+  if (nrow(rows) > 0) {
+    df_result <- rbind(df_result, rows)
+  }
+}
+
+# Print the result
+print(df_result)
+write.csv(df_result, file = "common_down_log2FC.csv", row.names = FALSE)
+```
+
+```{r}
+up_clean_meta <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Metatranscriptomics_up_clean.csv', header = TRUE)
+down_clean_meta <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/Metatranscriptomics_down_clean.csv', header = TRUE)
+
+up_clean_meta
+down_clean_meta
+
+
+```
+
+
+
+
+
+```{r}
+is_present <- any(merged_G155$ensembl_gene_id == "ENSG00000125285")
+is_present
+```
+
+
+```{r}
+value_count <- table(merged_df$GeneID)["26155"]
+value_count
+```

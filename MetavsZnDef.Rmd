@@ -1,0 +1,30 @@
+---
+title: "Metatranscriptomics vs ZnDef"
+output: html_notebook
+---
+
+#CONVERT ZNDEF GENE NAMES FROM MOUSE TO HUMAN ANALOGS 
+```{r}
+
+
+up_ZnDef_colon_human  <-  up_ZnDef_colon %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+up_ZnDef_colon_human <- up_ZnDef_colon_human[complete.cases(up_ZnDef_colon_human$Human), ]
+up_ZnDef_colon_human
+
+down_ZnDef_colon_human  <-  down_ZnDef_colon %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+down_ZnDef_colon_human <- down_ZnDef_colon_human[complete.cases(down_ZnDef_colon_human$Human), ]
+down_ZnDef_colon_human
+
+up_ZnDef_int_human  <-  up_ZnDef_int %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+up_ZnDef_int_human <- up_ZnDef_int_human[complete.cases(up_ZnDef_int_human$Human), ]
+up_ZnDef_int_human
+
+down_ZnDef_int_human  <-  down_ZnDef_int %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+down_ZnDef_int_human <- down_ZnDef_int_human[complete.cases(down_ZnDef_int_human$Human), ]
+down_ZnDef_int_human
+
+```

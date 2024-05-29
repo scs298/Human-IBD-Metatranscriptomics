@@ -1,0 +1,781 @@
+---
+title: "Pseudo scRNAseq"
+output: html_notebook
+---
+
+```{r}
+library(biomaRt)
+
+mouse <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+#mouse
+t2g_mouse <- getBM(attributes=c("ensembl_transcript_id","ensembl_gene_id", "description", "external_gene_name", "mgi_symbol"), mart=mouse)
+t2g_human <- getBM(attributes=c("ensembl_transcript_id","ensembl_gene_id", "description", "external_gene_name", "mgi_symbol"), mart= human)
+Mouse_Human <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Mouse_Human_Homologies_2/Sheet 2-Table 1.csv', header = TRUE)
+
+```
+
+```{r}
+library(biomaRt)
+human <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+gene_ids_human <- getBM(attributes=c("ensembl_gene_id", "entrezgene_id", "description", "external_gene_name"), mart=human)
+gene_ids_human
+```
+
+
+#Get names of healthy and IBD sample names from the metadata
+
+```{r}
+#RISK_metadata
+#AIICD_metadata
+#reGRID_metadata
+#Sweden_metadata
+```
+
+```{r}
+RISK_healthy <- RISK_metadata[RISK_metadata$disease == "HC", "sample"]
+RISK_healthy <- c("Gene", RISK_healthy)
+RISK_IBD <- RISK_metadata[RISK_metadata$disease != "HC", "sample"]
+RISK_IBD <- c("Gene", RISK_IBD)
+
+AIICD_healthy <- AIICD_metadata[AIICD_metadata$disease != "CD", "sample"]
+AIICD_healthy <- c("Gene", AIICD_healthy)
+AIICD_IBD <- AIICD_metadata[AIICD_metadata$disease == "CD", "sample"]
+AIICD_IBD <- c("Gene", AIICD_IBD)
+
+reGRID_healthy_colon <- reGRID_metadata[reGRID_metadata$disease == "HC" & reGRID_metadata$source == "colon", "sample"]
+reGRID_healthy_colon <- c("Gene", reGRID_healthy_colon)
+reGRID_IBD_colon <- reGRID_metadata[reGRID_metadata$activity == "Active" & reGRID_metadata$source == "colon", "sample"]
+reGRID_IBD_colon <- c("Gene", reGRID_IBD_colon)
+reGRID_IBD_colon <- reGRID_IBD_colon[reGRID_IBD_colon != "MSCCR_reGRID_1_Biopsy_3"] #this column name sneaked in and is messing everything up
+
+reGRID_healthy_int <- reGRID_metadata[reGRID_metadata$disease == "HC" & reGRID_metadata$source == "intestine", "sample"]
+reGRID_healthy_int <- c("Gene", reGRID_healthy_int)
+reGRID_IBD_int <- reGRID_metadata[reGRID_metadata$activity == "Active" & reGRID_metadata$source == "intestine", "sample"]
+reGRID_IBD_int <- c("Gene", reGRID_IBD_int)
+
+Sweden_healthy <- Sweden_metadata[Sweden_metadata$disease == "HC", "sample"]
+Sweden_healthy <- c("Gene", Sweden_healthy)
+Sweden_IBD <- Sweden_metadata[Sweden_metadata$activity == "Active", "sample"]
+Sweden_IBD <- c("Gene", Sweden_IBD)
+
+Southampton_healthy <- Southampton_metadata[Southampton_metadata$disease == "HC", "sample"]
+Southampton_healthy <- c("Gene", Southampton_healthy)
+Southampton_IBD <- Southampton_metadata[Southampton_metadata$Treatment == "no", "sample"]
+Southampton_IBD <- c("Gene", Southampton_IBD)
+
+
+#RISK_healthy
+#RISK_IBD
+#AIICD_healthy
+#AIICD_IBD
+#reGRID_healthy
+#reGRID_IBD
+#Sweden_healthy
+#Sweden_IBD
+```
+
+
+```{r}
+library(dplyr)
+
+RISK_normalized_colon <- as.data.frame(RISK_normalized_colon)
+#AIICD_normalized_colon <- as.data.frame(AIICD_normalized_colon)
+reGRID_normalized_colon <- as.data.frame(reGRID_normalized_colon_active)
+Sweden_normalized_colon <- as.data.frame(Sweden_normalized_colon_active)
+reGRID_normalized_int <- as.data.frame(reGRID_normalized_intestine_active)
+Southampton_normalized_int <- as.data.frame(Southampton_normalized_intestine_active)
+
+
+#convert all row names to the first column named 
+RISK_normalized_colon$entrezgene_id <- rownames(RISK_normalized_colon)
+rownames(RISK_normalized_colon) <- NULL  
+
+#AIICD_normalized_colon$Gene <- rownames(AIICD_normalized_colon)
+#rownames(AIICD_normalized_colon) <- NULL  # Remove row names
+
+reGRID_normalized_colon$ensembl_gene_id <- rownames(reGRID_normalized_colon)
+rownames(reGRID_normalized_colon) <- NULL  # Remove row names
+
+reGRID_normalized_int$ensembl_gene_id <- rownames(reGRID_normalized_int)
+rownames(reGRID_normalized_int) <- NULL  # Remove row names
+
+Sweden_normalized_colon$ensembl_gene_id <- rownames(Sweden_normalized_colon)
+rownames(Sweden_normalized_colon) <- NULL  # Remove row names
+
+Southampton_normalized_int$external_gene_name <- rownames(Southampton_normalized_int)
+rownames(Southampton_normalized_int) <- NULL  # Remove row names
+
+
+RISK_normalized_colon <- merge(RISK_normalized_colon, gene_ids_human, by = "entrezgene_id")
+reGRID_normalized_colon <- merge(reGRID_normalized_colon, gene_ids_human, by = "ensembl_gene_id")
+Sweden_normalized_colon <- merge(Sweden_normalized_colon, gene_ids_human, by = "ensembl_gene_id")
+reGRID_normalized_int <- merge(reGRID_normalized_int, gene_ids_human, by = "ensembl_gene_id")
+Southampton_normalized_int <- merge(Southampton_normalized_int, gene_ids_human, by = "external_gene_name")
+
+columns_to_remove <- c("ensembl_gene_id", "entrezgene_id", "description")
+
+RISK_normalized_colon <- RISK_normalized_colon[, !names(RISK_normalized_colon) %in% columns_to_remove, drop = FALSE]
+reGRID_normalized_colon <- reGRID_normalized_colon[, !names(reGRID_normalized_colon) %in% columns_to_remove, drop = FALSE]
+Sweden_normalized_colon <- Sweden_normalized_colon[, !names(Sweden_normalized_colon) %in% columns_to_remove, drop = FALSE]
+reGRID_normalized_int <- reGRID_normalized_int[, !names(reGRID_normalized_int) %in% columns_to_remove, drop = FALSE]
+Southampton_normalized_int <- Southampton_normalized_int[, !names(Southampton_normalized_int) %in% columns_to_remove, drop = FALSE]
+
+
+RISK_normalized_colon <- RISK_normalized_colon %>%
+  select(external_gene_name, everything()) %>%
+  rename(Gene = external_gene_name)
+
+#AIICD_normalized_colon <- AIICD_normalized_colon %>%
+#  select(Gene, everything())
+
+reGRID_normalized_colon <- reGRID_normalized_colon %>%
+  select(external_gene_name, everything()) %>%
+  rename(Gene = external_gene_name)
+
+Sweden_normalized_colon <- Sweden_normalized_colon %>%
+  select(external_gene_name, everything()) %>%
+  rename(Gene = external_gene_name)
+
+reGRID_normalized_int <- reGRID_normalized_int %>%
+  select(external_gene_name, everything()) %>%
+  rename(Gene = external_gene_name)
+
+Southampton_normalized_int <- Southampton_normalized_int %>%
+  select(external_gene_name, everything()) %>%
+  rename(Gene = external_gene_name)
+
+
+RISK_normalized_healthy <- RISK_normalized_colon[RISK_healthy]
+RISK_normalized_IBD <- RISK_normalized_colon[RISK_IBD]
+
+#AIICD_normalized_healthy <- AIICD_normalized_colon[AIICD_healthy]
+#AIICD_normalized_IBD <- AIICD_normalized_colon[AIICD_IBD]
+
+Sweden_normalized_healthy <- Sweden_normalized_colon[Sweden_healthy]
+Sweden_IBD <- na.omit(Sweden_IBD)
+Sweden_normalized_IBD <- Sweden_normalized_colon[Sweden_IBD]
+
+reGRID_healthy_colon <- na.omit(reGRID_healthy_colon)
+reGRID_normalized_healthy_colon <- reGRID_normalized_colon[reGRID_healthy_colon]
+reGRID_IBD_colon <- na.omit(reGRID_IBD_colon)
+reGRID_normalized_IBD_colon <- reGRID_normalized_colon[reGRID_IBD_colon]
+
+Southampton_normalized_healthy <- Southampton_normalized_int[Southampton_healthy]
+Southampton_IBD <- na.omit(Southampton_IBD)
+Southampton_normalized_IBD <- Southampton_normalized_int[Southampton_IBD]
+
+reGRID_normalized_healthy_int <- reGRID_normalized_int[reGRID_healthy_int]
+reGRID_IBD_int <- na.omit(reGRID_IBD_int)
+reGRID_normalized_IBD_int <- reGRID_normalized_int[reGRID_IBD_int]
+
+RISK_normalized_healthy
+RISK_normalized_IBD
+#AIICD_normalized_healthy
+#AIICD_normalized_IBD
+Sweden_normalized_healthy
+Sweden_normalized_IBD
+reGRID_normalized_healthy_colon
+reGRID_normalized_IBD_colon
+reGRID_normalized_healthy_int
+reGRID_normalized_IBD_int
+Southampton_normalized_healthy
+Southampton_normalized_IBD
+
+```
+
+```{r}
+Southampton_normalized_int
+gene_ids_human
+```
+
+
+
+```{r}
+
+#merge(merge(df1, df2, by = "ID", all = TRUE), df3, by = "ID", all = TRUE)
+meta_all_healthy_norm_colon <- merge(RISK_normalized_healthy,Sweden_normalized_healthy, by = "Gene")
+
+#, reGRID_normalized_healthy_colon, by = "Gene", all = TRUE)
+meta_all_IBD_norm_colon <-merge(merge(RISK_normalized_IBD,Sweden_normalized_IBD, by = "Gene", all = TRUE), reGRID_normalized_IBD_colon, by = "Gene", all = TRUE)
+
+meta_all_healthy_norm_int <- merge(reGRID_normalized_healthy_int,Southampton_normalized_healthy, by = "Gene")
+meta_all_IBD_norm_int <- merge(reGRID_normalized_IBD_int,Southampton_normalized_IBD, by = "Gene")
+
+meta_all_healthy_norm_colon
+meta_all_IBD_norm_colon
+meta_all_healthy_norm_int
+meta_all_IBD_norm_int
+```
+
+```{r}
+RISK_normalized_healthy
+Sweden_normalized_healthy
+reGRID_normalized_healthy_colon
+```
+
+
+
+
+
+```{r}
+write.csv(meta_all_healthy_norm_colon, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/xCell/Input/meta_all_healthy_norm_colon.csv", row.names = FALSE)
+write.csv(meta_all_IBD_norm_colon, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/xCell/Input/meta_all_IBD_norm_colon.csv", row.names = FALSE)
+write.csv(meta_all_healthy_norm_int, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/xCell/Input/meta_all_healthy_norm_int.csv", row.names = FALSE)
+write.csv(meta_all_IBD_norm_int, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Metatranscriptomics/4:22:24/xCell/Input/meta_all_IBD_norm_int.csv", row.names = FALSE)
+
+
+```
+#Separate normalized gene counts for metatranscriptomics datasets from the DESeq2 output
+
+```{r}
+library(dplyr)
+
+RISK_normalized_colon <- as.data.frame(RISK_normalized_colon)
+AIICD_normalized_colon <- as.data.frame(AIICD_normalized_colon)
+G155_normalized_colon <- as.data.frame(G155_normalized_colon)
+reGRID_normalized_colon <- as.data.frame(reGRID_normalized_colon)
+Sweden_normalized_colon <- as.data.frame(Sweden_normalized_colon)
+
+#convert all row names to the first column named 
+RISK_normalized_colon$entrezgene_id <- rownames(RISK_normalized_colon)
+rownames(RISK_normalized_colon) <- NULL  
+
+AIICD_normalized_colon$Gene <- rownames(AIICD_normalized_colon)
+rownames(AIICD_normalized_colon) <- NULL  # Remove row names
+
+reGRID_normalized_colon$ensembl_gene_id <- rownames(reGRID_normalized_colon)
+rownames(reGRID_normalized_colon) <- NULL  # Remove row names
+
+Sweden_normalized_colon$ensembl_gene_id <- rownames(Sweden_normalized_colon)
+rownames(Sweden_normalized_colon) <- NULL  # Remove row names
+
+
+RISK_normalized_colon <- merge(RISK_normalized_colon, gene_ids_human, by = "entrezgene_id")
+reGRID_normalized_colon <- merge(reGRID_normalized_colon, gene_ids_human, by = "ensembl_gene_id")
+Sweden_normalized_colon <- merge(Sweden_normalized_colon, gene_ids_human, by = "ensembl_gene_id")
+
+columns_to_remove <- c("ensembl_gene_id", "entrezgene_id", "description")
+
+RISK_normalized_colon <- RISK_normalized_colon[, !names(RISK_normalized_colon) %in% columns_to_remove, drop = FALSE]
+reGRID_normalized_colon <- reGRID_normalized_colon[, !names(reGRID_normalized_colon) %in% columns_to_remove, drop = FALSE]
+Sweden_normalized_colon <- Sweden_normalized_colon[, !names(Sweden_normalized_colon) %in% columns_to_remove, drop = FALSE]
+
+
+RISK_normalized_colon <- RISK_normalized_colon %>%
+  select(external_gene_name, everything()) %>%
+  rename(Gene = external_gene_name)
+
+AIICD_normalized_colon <- AIICD_normalized_colon %>%
+  select(Gene, everything())
+
+reGRID_normalized_colon <- reGRID_normalized_colon %>%
+  select(external_gene_name, everything()) %>%
+  rename(Gene = external_gene_name)
+
+Sweden_normalized_colon <- Sweden_normalized_colon %>%
+  select(external_gene_name, everything()) %>%
+  rename(Gene = external_gene_name)
+
+
+RISK_normalized_healthy <- RISK_normalized_colon[RISK_healthy]
+RISK_normalized_IBD <- RISK_normalized_colon[RISK_IBD]
+
+AIICD_normalized_healthy <- AIICD_normalized_colon[AIICD_healthy]
+AIICD_normalized_IBD <- AIICD_normalized_colon[AIICD_IBD]
+
+Sweden_normalized_healthy <- Sweden_normalized_colon[Sweden_healthy]
+Sweden_normalized_IBD <- Sweden_normalized_colon[Sweden_IBD]
+
+reGRID_normalized_healthy <- reGRID_normalized_colon[reGRID_healthy]
+reGRID_normalized_IBD <- reGRID_normalized_colon[reGRID_IBD]
+
+RISK_normalized_healthy
+RISK_normalized_IBD
+AIICD_normalized_healthy
+AIICD_normalized_IBD
+Sweden_normalized_healthy
+Sweden_normalized_IBD
+reGRID_normalized_healthy
+reGRID_normalized_IBD
+
+```
+
+```{r}
+meta_all_healthy_norm <- merge(AIICD_normalized_healthy,RISK_normalized_healthy, by = "Gene")
+
+meta_all_healthy_norm
+RISK_normalized_healthy
+AIICD_normalized_healthy
+```
+
+
+
+
+```{r}
+write.csv(RISK_normalized_healthy, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_input/RISK_normalized_healthy.csv", row.names = FALSE)
+write.csv(RISK_normalized_IBD, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_input/RISK_normalized_IBD.csv", row.names = FALSE)
+write.csv(AIICD_normalized_healthy, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_input/AIICD_normalized_healthy.csv", row.names = FALSE)
+write.csv(AIICD_normalized_IBD, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_input/AIICD_normalized_IBD.csv", row.names = FALSE)
+write.csv(Sweden_normalized_healthy, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_input/Sweden_normalized_healthy.csv", row.names = FALSE)
+write.csv(Sweden_normalized_IBD, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_input/Sweden_normalized_IBD.csv", row.names = FALSE)
+write.csv(reGRID_normalized_healthy, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_input/reGRID_normalized_healthy.csv", row.names = FALSE)
+write.csv(reGRID_normalized_IBD, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_input/reGRID_normalized_IBD.csv", row.names = FALSE)
+
+```
+
+
+
+```{r}
+#t2g
+#IL10_colon_normalized <- distinct(IL10_colon_normalized)
+#IL10_colon_normalized <-  IL10_colon_normalized %>%
+#  left_join(Mouse_Human, by = c("Genes" = "Mouse")) 
+#IL10_colon_normalized <- IL10_colon_normalized[complete.cases(IL10_colon_normalized$Human), ]
+#IL10_colon_normalized
+write.csv(IL10_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_normalized_Human_homolog_converted.csv", row.names = FALSE)
+write.table(IL10_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_normalized_Human_homolog_converted.tsv", sep = "\t", row.names = FALSE)
+
+```
+
+```{r}
+
+#columns_to_remove <- c("Genes", "EntrezGene.ID", "Mouse.MGI.ID", "X", "X.1")
+#IL10_colon_normalized <- IL10_colon_normalized[, !colnames(IL10_colon_normalized) %in% columns_to_remove]
+#IL10_colon_normalized <- cbind(IL10_colon_normalized[, ncol(IL10_colon_normalized)], IL10_colon_normalized[, -ncol(IL10_colon_normalized)])
+write.table(IL10_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_normalized_Human_homolog_converted.tsv", sep = "\t", row.names = FALSE)
+IL10_colon_normalized
+```
+
+```{r}
+ZnDef_colon_normalized <- distinct(ZnDef_colon_normalized)
+ZnDef_colon_normalized
+
+```
+
+```{r}
+ZnDef_norm_clean
+```
+
+
+```{r}
+#t2g
+ZnDef_norm_clean_HUMAN <- distinct(ZnDef_norm_clean)
+ZnDef_norm_clean_HUMAN <-  ZnDef_norm_clean_HUMAN %>%
+  left_join(Mouse_Human, by = c("Genes" = "Mouse")) 
+ZnDef_norm_clean_HUMAN <- ZnDef_norm_clean_HUMAN[complete.cases(ZnDef_norm_clean_HUMAN$Human), ]
+#IL10_colon_normalized
+#write.csv(IL10_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_normalized_Human_homolog_converted.csv", row.names = FALSE)
+#write.table(IL10_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_normalized_Human_homolog_converted.tsv", sep = "\t", row.names = FALSE)
+
+
+columns_to_remove <- c("Genes", "EntrezGene.ID", "Mouse.MGI.ID", "X", "X.1")
+ZnDef_norm_clean_HUMAN <- ZnDef_norm_clean_HUMAN[, !colnames(ZnDef_norm_clean_HUMAN) %in% columns_to_remove]
+ZnDef_norm_clean_HUMAN <- ZnDef_norm_clean_HUMAN[, c("Human", setdiff(names(ZnDef_norm_clean_HUMAN), "Human"))]
+
+ZnDef_norm_clean_HUMAN
+
+```
+
+
+```{r}
+#t2g
+ZnDef_colon_normalized <- distinct(ZnDef_colon_normalized)
+ZnDef_colon_normalized <-  ZnDef_colon_normalized %>%
+  left_join(Mouse_Human, by = c("Genes" = "Mouse")) 
+ZnDef_colon_normalized <- ZnDef_colon_normalized[complete.cases(ZnDef_colon_normalized$Human), ]
+#IL10_colon_normalized
+write.csv(IL10_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_normalized_Human_homolog_converted.csv", row.names = FALSE)
+write.table(IL10_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_normalized_Human_homolog_converted.tsv", sep = "\t", row.names = FALSE)
+
+```
+
+
+```{r}
+#t2g
+ZnDef_colon_normalized <- distinct(ZnDef_colon_normalized)
+ZnDef_colon_normalized <-  ZnDef_colon_normalized %>%
+  left_join(Mouse_Human, by = c("Genes" = "Mouse")) 
+ZnDef_colon_normalized <- ZnDef_colon_normalized[complete.cases(ZnDef_colon_normalized$Human), ]
+#IL10_colon_normalized
+write.csv(IL10_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_normalized_Human_homolog_converted.csv", row.names = FALSE)
+write.table(IL10_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_normalized_Human_homolog_converted.tsv", sep = "\t", row.names = FALSE)
+
+```
+
+```{r}
+
+columns_to_remove <- c("Genes", "EntrezGene.ID", "Mouse.MGI.ID", "X", "X.1")
+ZnDef_colon_normalized <- ZnDef_colon_normalized[, !colnames(ZnDef_colon_normalized) %in% columns_to_remove]
+ZnDef_colon_normalized <- cbind(ZnDef_colon_normalized[, ncol(ZnDef_colon_normalized)], ZnDef_colon_normalized[, -ncol(ZnDef_colon_normalized)])
+write.table(ZnDef_colon_normalized, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/ZnDef_colon_normalized_Human_homolog_converted.tsv", sep = "\t", row.names = FALSE)
+ZnDef_colon_normalized
+```
+
+```{r}
+#IL10 Control diet: 1, 2, 7, 8, 12, 46, 47
+#IL10 Zn supplemented: 20, 24, 29, 35, 36, 40, 42, 43
+#ZnDef Control diet: 1, 2, 3, 4, 5, 6, 7, 8
+#ZnDef Zn deficient diet: 9, 10, 11, 12, 13, 15, 16
+
+xcell_IL10_pvalue <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_IL10_colon_OLD/xcell_IL10_pvalue.csv', header = TRUE)
+xcell_ZnDef_pvalue <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_ZnDef_Colon_OLD/xcell_ZnDef_pvalue.csv', header = TRUE)
+
+xcell_IL10 <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_IL10_colon_OLD/xcell_IL10_colon.csv', header = TRUE)
+xcell_ZnDef <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_ZnDef_Colon_OLD/xcell_ZnDef_colon.csv', header = TRUE)
+
+
+xcell_IL10_control <- c("X", "IL10_2_colontissue_1", "IL10_2_colontissue_2", "IL10_2_colontissue_7", "IL10_2_colontissue_8", "IL10_2_colontissue_12", "IL10_2_colontissue_46", "IL10_2_colontissue_47")
+xcell_IL10_Zn_supp <- c("X", "IL10_2_colontissue_20", "IL10_2_colontissue_24", "IL10_2_colontissue_29", "IL10_2_colontissue_35", "IL10_2_colontissue_36", "IL10_2_colontissue_40", "IL10_2_colontissue_42", "IL10_2_colontissue_43")
+
+xcell_ZnDef_control <- c("X", "ZnDef_colontissue_1", "ZnDef_colontissue_2", "ZnDef_colontissue_3", "ZnDef_colontissue_4", "ZnDef_colontissue_5", "ZnDef_colontissue_6", "ZnDef_colontissue_7", "ZnDef_colontissue_8")
+xcell_ZnDef_Zndef <- c("X", "ZnDef_colontissue_9", "ZnDef_colontissue_10", "ZnDef_colontissue_11", "ZnDef_colontissue_12", "ZnDef_colontissue_13", "ZnDef_colontissue_15", "ZnDef_colontissue_16")
+
+IL10_xcell_control <- xcell_IL10[xcell_IL10_control]
+IL10_xcell_Zn_supp <- xcell_IL10[xcell_IL10_Zn_supp]
+rownames(IL10_xcell_control) <- IL10_xcell_control$X
+rownames(IL10_xcell_Zn_supp) <- IL10_xcell_Zn_supp$X
+
+
+ZnDef_xcell_control <- xcell_ZnDef[xcell_ZnDef_control]
+ZnDef_xcell_Zndef <- xcell_ZnDef[xcell_ZnDef_Zndef]
+rownames(ZnDef_xcell_control) <- ZnDef_xcell_control$X
+rownames(ZnDef_xcell_Zn_supp) <- ZnDef_xcell_Zn_supp$X
+
+# Remove the first column from the dataframe (if needed)
+IL10_xcell_control <- IL10_xcell_control[, -1]
+IL10_xcell_Zn_supp <- IL10_xcell_Zn_supp[, -1]
+ZnDef_xcell_control <- ZnDef_xcell_control[, -1]
+ZnDef_xcell_Zndef <- ZnDef_xcell_Zndef[, -1]
+
+IL10_xcell_control 
+IL10_xcell_Zn_supp 
+ZnDef_xcell_control 
+ZnDef_xcell_Zndef
+
+```
+```{r}
+ xcell_IL10
+```
+
+#xcell analysis for metatranscriptomics
+
+```{r}
+meta_healthy_xcell <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_meta_all/meta_healthy.csv', header = TRUE)
+
+meta_healthy_pvalue <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_meta_all/meta_healthy_pvalue.csv', header = TRUE)
+
+meta_IBD_xcell <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_meta_all/meta_IBD.csv', header = TRUE)
+
+meta_IBD_pvalue <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_meta_all/meta_IBD_pvalue.csv', header = TRUE)
+
+
+
+meta_healthy_xcell_clean <- replace_values(meta_healthy_pvalue, meta_healthy_xcell)
+replace_outliers_with_na(meta_healthy_xcell_clean)
+
+meta_IBD_xcell_clean <- replace_values(meta_IBD_pvalue, meta_IBD_xcell)
+replace_outliers_with_na(meta_IBD_xcell_clean)
+
+meta_healthy_xcell_clean <- remove_rows_with_na(meta_healthy_xcell_clean, 30)
+meta_IBD_xcell_clean <- remove_rows_with_na(meta_IBD_xcell_clean, 30)
+```
+```{r}
+
+write.csv(meta_IBD_xcell_clean, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_meta_all/meta_IBD_xcell_clean.csv", row.names = FALSE)
+
+write.csv(meta_healthy_xcell_clean, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_results_meta_all/meta_healthy_xcell_clean.csv", row.names = FALSE)
+
+
+meta_IBD_xcell_clean
+meta_healthy_xcell_clean
+```
+
+```{r}
+xcell_ZnDef_clean <- replace_values(xcell_ZnDef_pvalue, xcell_ZnDef)
+replace_outliers_with_na(xcell_ZnDef_clean)
+xcell_ZnDef_clean <- remove_rows_with_na(xcell_ZnDef_clean, 30)
+xcell_ZnDef_clean
+
+
+write.csv(xcell_ZnDef_clean, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell/xcell_ZnDef_clean.csv", row.names = FALSE)
+```
+
+
+
+
+#REPLACE CELLS THAT HAVE A PVALUE > 0.1 AND REMOVE ROWS THAT HAVE MORE THAN 30% NA VALUES
+
+```{r}
+replace_values <- function(df1, df2) {
+  # Iterate through each cell in df1
+  for (i in 1:nrow(df1)) {
+    for (j in 2:ncol(df1)) {
+      # Check if the value in df1 is greater than 0.1
+      if (df1[i, j] > 0.1) {
+        # Replace the corresponding cell value in df2 with NA
+        df2[i, j] <- NA
+      }
+    }
+  }
+  return(df2)
+}
+
+remove_rows_with_na <- function(df, threshold_percentage) {
+  # Calculate the number of NA values in each row
+  na_counts <- rowSums(is.na(df))
+  
+  # Calculate the percentage of NA values in each row
+  percentages <- na_counts / (ncol(df)-1) * 100
+  
+  # Filter rows where the percentage of NA values is less than or equal to the threshold
+  df_filtered <- df[percentages <= threshold_percentage, , drop = FALSE]
+  
+  return(df_filtered)
+}
+
+
+xcell_IL10_clean <- replace_values(xcell_IL10_pvalue, xcell_IL10)
+xcell_ZnDef_clean <- replace_values(xcell_ZnDef_pvalue, xcell_ZnDef)
+
+
+
+
+xcell_IL10_clean <- remove_rows_with_na(xcell_IL10_clean, 30)
+xcell_ZnDef_clean <- remove_rows_with_na(xcell_ZnDef_clean, 30)
+
+
+
+xcell_IL10_clean
+xcell_ZnDef_clean
+```
+
+
+#REMOVE OUTLIERS
+```{r}
+
+replace_outliers_with_na <- function(df) {
+  # Loop through each column except the first one
+  for (i in 1:nrow(df)) {
+    row <- unlist(df[i, -1])
+    row <- row[!is.na(row)]
+    Q1 <- quantile(row, probs = 0.25)
+    Q3 <- quantile(row, probs = 0.75)
+    IQR <- Q3 - Q1
+    threshold <- 1.5
+    row_outliers <- row < (Q1 - threshold * IQR) | row > (Q3 + threshold * IQR)
+    df[i, -1][row_outliers] <- NA
+    #row[row_outliers] <- NA  # Replace outliers with NA
+    #df[i,] <- row
+    #data[i,] <- row
+   # df[i, row_outliers] <- NA  # Replace outliers with NA
+  
+    
+  }
+   write.csv(df, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/IL10_xcell_deficient_clean.csv", row.names = FALSE) 
+  return(df)
+  
+}
+
+
+
+# Apply the function to your dataframe
+#replace_outliers_with_na(xcell_control)
+replace_outliers_with_na(xcell_IL10_clean)
+```
+
+```{r}
+transposed_xcell_IL10_clean <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/xcell_results_IL10_colon/transposed_xcell_IL10_clean.csv', header = TRUE)
+transposed_xcell_IL10_clean
+```
+
+
+
+```{r}
+row.names(xcell_control)
+
+#rownames(xcell_control) <- xcell_control$X
+
+# Remove the first column (optional)
+#xcell_control <- xcell_control[, -1]
+
+xcell_control
+
+par(mfrow = c(nrow(xcell_control), 1))  # Set up multiple plots in a single window
+for (i in 1:nrow(xcell_control)) {
+  pie(xcell_control[i, ], labels = colnames(xcell_control), main = rownames(mat)[i])
+}
+
+# Reset the plotting parameters
+par(mfrow = c(1, 1))
+```
+```{r}
+par(mfrow = c(nrow(xcell_control), 1))  # Set up multiple plots in a single window
+for (i in 1:nrow(xcell_control)) {
+  pie(xcell_control[i, ], labels = colnames(xcell_control), main = rownames(mat)[i])
+}
+
+# Reset the plotting parameters
+par(mfrow = c(1, 1))
+```
+
+
+```{r}
+require(tidyverse)
+ggpubr::ggpie(data = xcell_control, x = "IL10_2_colontissue_1", label = "X", color = "white",
+                     lab.font = "white",fill = "os",lab.pos = "in", 
+                     orientation = "horizontal", lab.adjust = 100)+
+  ggsci::scale_fill_jama()+
+  theme(legend.position = "none")
+```
+
+
+```{r}
+library("ggplot2")
+
+ggplot() + theme_bw() + 
+geom_bar(aes(x = "", y = IL10_2_colontissue_1, fill = X),
+         stat = "identity", color = "white") + 
+  coord_polar("y", start = 0)
+
+
+```
+
+
+
+
+
+
+
+
+```{r}
+
+test <- IL10_colon_sig_merged
+
+
+test <- IL10_colon_sig_merged %>%
+  mutate(new_column = Mouse_Human$converted[match(external_gene_name, Mouse_Human$Symbol) + 1])
+
+# Print the resulting dataframe
+print(result_df)
+
+Human_reduced <- Human %>% distinct(Genetic.Location, .keep_all = TRUE)
+
+# .keep_all = TRUE ensures that all columns are kept in the result
+
+# Print the resulting dataframe
+Human_reduced
+
+```
+
+```{r}
+result <-  IL10_colon_sig_merged %>%
+  left_join(Mouse_Human, by = c("external_gene_name" = "Mouse")) 
+result
+```
+
+
+```{r}
+get_value_below <- function(matched_value) {
+  index <- match(matched_value, Mouse_Human$Symbol)
+  if (!is.na(index) && index < nrow(Mouse_Human)) {
+    return(Mouse_Human$value_to_add[index + 1])
+  } else {
+    return(NA)
+  }
+}
+
+# Use the function with mutate to add a new column to df1
+result_df <- IL10_colon_sig_merged %>%
+  mutate(new_column = sapply(external_gene_name, get_value_below))
+
+# Print the resulting dataframe
+print(result_df)
+```
+```{r}
+Mouse_Human
+```
+
+
+```{r}
+IL10_colon_sig_merged
+```
+
+
+```{r}
+test$present_in_df2 <- test$external_gene_name %in% Mouse_Human$Symbol
+
+test
+
+
+#test
+IL10_colon_sig_merged
+```
+
+```{r}
+count_false <- sum(!test$present_in_df2)
+count_false
+```
+
+
+
+```{r}
+library(biomaRt)
+
+# Use a different Ensembl mirror
+#ensembl <- useEnsembl(biomart = "ensembl", dataset = "hsapiens_gene_ensembl", host = "useast.ensembl.org")
+
+
+convertMouseGeneList <- function(x){
+require("biomaRt")
+human = useEnsembl(biomart = "ensembl", dataset = "hsapiens_gene_ensembl", host = "useast.ensembl.org")
+mouse = useEnsembl(biomart = "ensembl", dataset = "mmusculus_gene_ensembl", host = "useast.ensembl.org")
+genesV2 = getLDS(attributes = c("mgi_symbol"), filters = "mgi_symbol", values = x , mart = mouse, attributesL = c("hgnc_symbol"), martL = human, uniqueRows=T)
+humanx <- unique(genesV2[, 2])
+# Print the first 6 genes found to the screen
+print(head(humanx))
+return(humanx)
+}
+
+#humgenes<-convertMouseGeneList2(musgenes)
+```
+
+
+```{r}
+IL10_colon_sig_merged <- read.csv("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Deseq2/IL10_colon_sig_merged.csv")
+IL10_colon_sig_merged
+
+#IL10_colon_mouse_genes <- IL10_colon_sig_merged$external_gene_name
+#IL10_colon_mouse_genes
+```
+
+```{r}
+IL10_colon_human_convert <- convertMouseGeneList(IL10_colon_mouse_genes)
+IL10_colon_human_convert
+```
+```{r}
+library(org.Hs.eg.db)
+library(org.Mm.eg.db)
+library(Orthology.eg.db)
+
+mapIt <- function(mouseids, horg, morg, orth){
+    mouseg <- mapIds(morg, mouseids, "ENTREZID", "SYMBOL")
+    mapped <- select(orth, mouseg, "Homo_sapiens","Mus_musculus")
+    names(mapped) <- c("Mus_egid","Homo_egid")
+    husymb <- select(horg, as.character(mapped[,2]), "SYMBOL","ENTREZID")
+    return(data.frame(Mus_symbol = mouseids,
+                      mapped,
+                      Homo_symbol = husymb[,2]))
+}
+
+
+mapIt(IL10_colon_mouse_genes, org.Hs.eg.db, org.Mm.eg.db, Orthology.eg.db)
+```
+```{r}
+mapIt
+```
+
+
+```{r}
+len
+```
+

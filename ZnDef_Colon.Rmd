@@ -1,0 +1,342 @@
+---
+title: "Differential Expression Analysis Zinc Deficiency in Colon Tissue"
+output: html_notebook
+---
+
+LOAD REQUIRED PACKAGES:
+
+```{r}
+#install packages
+#install.packages("installr")
+#install.packages("rhdf5")
+#install.packages("devtools")
+#devtools::install_github("pachterlab/sleuth")
+library("sleuth")
+library("gridExtra")
+library("cowplot")
+library("biomaRt")
+#library("wasabi")
+library("sleuth")
+#library("annotables")
+library("tidyverse")
+```
+
+#LOAD SAMPLE DATA:
+
+```{r}
+Mouse_Human <- read.csv('/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Mouse_Human_Homologies.csv', header = TRUE)
+#get sample id names in the kallisto folder for ZnDef_colon
+sample_id_ZnDef_colon <- dir(file.path("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/bioHPC_Folder/scs298/kallisto/ZnDef_colon/"))
+
+#BE SURE TO DO THE SAME DOWNSTREAM MODIFICATIONS WITH THE abundance.h5 FILES
+#get file paths for the directories to ZnDef kallisto output
+ZnDef_colon_directory <- file.path("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/bioHPC_Folder/scs298/kallisto/ZnDef_colon", sample_id_ZnDef_colon, "abundance.tsv")
+
+
+#load metadata and relevel so that "control" in treatment group and "M" in sex group are teh references for differential sequence analysis
+ZnDef_colon_metadata <-  read.table(file.path("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/bioHPC_Folder/scs298/kallisto/ZnDef_colon_metadata.csv"),
+                  header = TRUE,
+                  stringsAsFactors = FALSE,
+                  sep = ",")
+
+ZnDef_colon_metadata <- dplyr::mutate(ZnDef_colon_metadata, path = ZnDef_colon_directory)
+ZnDef_colon_metadata$treatment <- factor(ZnDef_colon_metadata$treatment)
+ZnDef_colon_metadata$treatment <- relevel(ZnDef_colon_metadata$treatment, ref = "control")
+ZnDef_colon_metadata$sex <- factor(ZnDef_colon_metadata$sex)
+ZnDef_colon_metadata$sex <- relevel(ZnDef_colon_metadata$sex, ref = "M")
+
+sample_id_ZnDef_colon
+ZnDef_colon_directory
+ZnDef_colon_metadata
+```
+
+#CLEAN DATA:
+
+```{r}
+#clean kallisto abundance data to include ensembl transcript IDs. Right now, the row names include all different sorts of gene IDs from different databases 
+for (file_path in ZnDef_colon_directory) {
+  
+  # Check if the file is a TSV file
+  if (grepl("\\.tsv$", file_path, ignore.case = TRUE)) {
+    
+    # Read the TSV file
+    your_data <- read.delim(file_path, header = TRUE, sep = "\t")
+    
+     # Specify the column you want to process
+    column_to_process <- "target_id"
+    
+    # Keep values before the first occurrence of "|"
+    your_data[, column_to_process] <- sub("\\|.*", "", as.character(your_data[, column_to_process]))
+    
+    # Print or save the modified dataframe
+    #print(your_data)
+    
+    write.table(your_data, file = file_path, sep = "\t", row.names = FALSE, col.names = TRUE)
+  }
+}
+
+```
+
+
+```{r}
+#Clean target id columns in h5 files 
+
+library(rhdf5)
+
+
+files <- list.files(file.path("/Users/savitasastry/Downloads/Zinc_Deficiency_SS/bioHPC_Folder/scs298/kallisto/ZnDef_colon/", sample_id_ZnDef_colon), pattern=".h5", recursive=TRUE, full.names=TRUE)
+
+
+for (currentFile in files) {
+  oldids <- h5read(currentFile, "/aux/ids")
+  newids <- gsub("\\|.*", "", oldids)
+  h5write(newids, currentFile, "/aux/ids")
+
+}
+```
+
+LOAD ENSEMBL TRANSCRIPTOMIC DATA:
+
+```{r}
+mouse <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+#mouse
+t2g <- getBM(attributes=c("ensembl_transcript_id","ensembl_gene_id", "description", "external_gene_name", "mgi_symbol"), mart=mouse)
+
+ttg <- dplyr::rename(t2g, target_id = ensembl_transcript_id, ens_gene = ensembl_gene_id, ext_gene = external_gene_name)
+
+#t2g
+#ttg
+```
+
+#PREPARE FOR DESEQ2
+
+```{r}
+library(tximport)
+library(tximportData)
+library(GenomicFeatures)
+library(DESeq2)
+
+#SAVE MOUSE DATABASE 
+txdb <- makeTxDbFromGFF(file="/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Databases/gencode.vM33.annotation.gtf.gz")
+txdb
+saveDb(x=txdb, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/Databases/gencode.vM33.annotation.TxDb")
+
+#CREATE TRANSCRIPT TO GENE DATAFRAME
+k <- keys(txdb, keytype = "TXNAME")
+tx2gene <- select(txdb, k, "GENEID", "TXNAME")
+head(k)
+head(tx2gene)
+dim(tx2gene)
+length(k)
+#write.table(tx2gene, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/tx2gene.csv", sep = "\t", row.names = FALSE)
+
+#CREATE COUNT MATRIX FROM KALLISTO OUTPUT ON IL10 COLON TISSUE DATA
+txi.kallisto_ZnDef_colon.tsv <- tximport(ZnDef_colon_directory, type = "kallisto", tx2gene = tx2gene) 
+write.table(txi.kallisto_ZnDef_colon.tsv, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/txi.kallisto_ZnDef_colon.tsv", sep = "\t", quote = FALSE, row.names = FALSE)
+kallisto_count_matrix_ZnDef_colon <- as.data.frame(txi.kallisto_ZnDef_colon.tsv$counts)
+colnames(kallisto_count_matrix_ZnDef_colon) <- sample_id_ZnDef_colon
+#head(kallisto_count_matrix_IL10_colon)
+kallisto_count_matrix_ZnDef_colon <- round(kallisto_count_matrix_ZnDef_colon, 0)
+#head(kallisto_count_matrix_IL10_colon)
+kallisto_count_matrix_ZnDef_colon$genes <- rownames(kallisto_count_matrix_ZnDef_colon)
+rownames(kallisto_count_matrix_ZnDef_colon) <- NULL
+kallisto_count_matrix_ZnDef_colon <- kallisto_count_matrix_ZnDef_colon[, c("genes", names(kallisto_count_matrix_ZnDef_colon)[-ncol(kallisto_count_matrix_ZnDef_colon)])]
+#head(kallisto_count_matrix_ZnDef_colon)
+
+#order of the metadata must be in the same order as the count matrix
+desired_order <- c("genes", "ZnDef_colontissue_1", "ZnDef_colontissue_2", "ZnDef_colontissue_3", "ZnDef_colontissue_4", "ZnDef_colontissue_5", "ZnDef_colontissue_6", "ZnDef_colontissue_7", "ZnDef_colontissue_8", "ZnDef_colontissue_9", "ZnDef_colontissue_10", "ZnDef_colontissue_11", "ZnDef_colontissue_12", "ZnDef_colontissue_13", "ZnDef_colontissue_15", "ZnDef_colontissue_16")
+
+kallisto_count_matrix_ZnDef_colon <- kallisto_count_matrix_ZnDef_colon[, desired_order]
+
+
+#PERFORM DIFFERENTIAL EXPRESSION ANALYSIS ON KALLISTO COUNT MATRIX USING DESEQ2
+dds_ZnDef_colon <- DESeqDataSetFromMatrix(countData = kallisto_count_matrix_ZnDef_colon,
+                                           colData = ZnDef_colon_metadata, 
+                                           design = ~treatment, tidy = TRUE)
+dds_ZnDef_colon$treatment <- relevel(dds_ZnDef_colon$treatment, ref = "control")
+
+dds_ZnDef_colon <- DESeq(dds_ZnDef_colon)
+ZnDef_colon_normalized <- counts(dds_ZnDef_colon, normalized = TRUE)
+res_ZnDef_colon <- results(dds_ZnDef_colon, contrast = c("treatment", "ZnDeficient", "control")) #apply shrinkage to improve accuracy of estimated fold change. lowly expressed genes tend to have high relatively levels of variability.
+res_ZnDef_colon$genes <- rownames(res_ZnDef_colon)
+rownames(res_ZnDef_colon) <- NULL
+res_ZnDef_colon <- res_ZnDef_colon[, c("genes", names(res_ZnDef_colon)[-ncol(res_ZnDef_colon)])]
+res_ZnDef_colon_sig <- subset(res_ZnDef_colon, pvalue < 0.05)
+res_ZnDef_colon_sig <- as.data.frame(res_ZnDef_colon_sig)
+res_ZnDef_colon_sig <- arrange(res_ZnDef_colon_sig, log2FoldChange)
+
+res_ZnDef_colon_sig_transcript_free <- res_ZnDef_colon_sig
+res_ZnDef_colon_sig_transcript_free$ensembl_gene_id <- sub("\\..*", "", res_ZnDef_colon_sig_transcript_free$genes)
+res_ZnDef_colon_sig_transcript_free <- res_ZnDef_colon_sig_transcript_free[, -1]
+res_ZnDef_colon_sig_transcript_free <- res_ZnDef_colon_sig_transcript_free[, c(ncol(res_ZnDef_colon_sig_transcript_free), 1:(ncol(res_ZnDef_colon_sig_transcript_free)-1))]
+
+
+ZnDef_colon_sig_merged <- data.frame()
+
+ZnDef_colon_sig_merged <- merge(res_ZnDef_colon_sig_transcript_free, t2g, by = "ensembl_gene_id", all = TRUE)
+
+ZnDef_colon_sig_merged <- ZnDef_colon_sig_merged[complete.cases(ZnDef_colon_sig_merged$baseMean), ]
+ZnDef_colon_sig_merged <- ZnDef_colon_sig_merged[!duplicated(ZnDef_colon_sig_merged$external_gene_name), ]
+ZnDef_colon_sig_merged <- arrange(ZnDef_colon_sig_merged, log2FoldChange)
+ZnDef_colon_sig_merged
+  
+```
+#SANITY CHECK TO MAKE SURE ZIP4 is UPREGULATED
+```{r}
+ZnDef_colon_sig_merged[startsWith(ZnDef_colon_sig_merged$external_gene_name, "Slc39"), ]
+levels(dds_ZnDef_colon$treatment)
+
+```
+
+
+#Export up and down regulated genes
+```{r}
+up_ZnDef_colon <- subset(ZnDef_colon_sig_merged, log2FoldChange > 1)
+up_ZnDef_colon <- up_ZnDef_colon[order(-up_ZnDef_colon$log2FoldChange), ]
+down_ZnDef_colon <- subset(ZnDef_colon_sig_merged, log2FoldChange < -1)
+
+
+write.csv(up_ZnDef_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/up_ZnDef_colon.csv", row.names = FALSE)
+write.csv(down_ZnDef_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/down_ZnDef_colon.csv", row.names = FALSE)
+write.csv(up_IL10_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/up_IL10_colon.csv", row.names = FALSE)
+write.csv(down_IL10_colon, "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/down_IL10_colon.csv", row.names = FALSE)
+up_ZnDef_colon
+down_ZnDef_colon
+```
+#Convert Deseq2 results to include human homologs
+```{r}
+library(dplyr)
+
+columns_to_keep <- c("log2FoldChange", "pvalue", "description", "external_gene_name")
+ZnDef_colon_Deseq2_final_HUMAN <- ZnDef_colon_sig_merged
+ZnDef_colon_Deseq2_final_HUMAN <- ZnDef_colon_Deseq2_final_HUMAN[, columns_to_keep, drop = FALSE]
+
+names(ZnDef_colon_Deseq2_final_HUMAN)[names(ZnDef_colon_Deseq2_final_HUMAN) == "external_gene_name"] <- "Mouse"
+
+
+ZnDef_colon_Deseq2_final_HUMAN <-  ZnDef_colon_Deseq2_final_HUMAN%>%
+  left_join(Mouse_Human, by = c("Mouse" = "Mouse")) 
+ZnDef_colon_Deseq2_final_HUMAN <- ZnDef_colon_Deseq2_final_HUMAN[complete.cases(ZnDef_colon_Deseq2_final_HUMAN$Human), ]
+  
+columns_to_remove <- c("Genes", "EntrezGene.ID", "Mouse.MGI.ID", "X", "X.1")
+ZnDef_colon_Deseq2_final_HUMAN <- ZnDef_colon_Deseq2_final_HUMAN[, !colnames(ZnDef_colon_Deseq2_final_HUMAN) %in% columns_to_remove]
+ZnDef_colon_Deseq2_final_HUMAN <- ZnDef_colon_Deseq2_final_HUMAN[, c("Human", setdiff(names(ZnDef_colon_Deseq2_final_HUMAN), "Human"))]
+
+ZnDef_colon_Deseq2_final_HUMAN
+
+#convert the nonsignificant genes (all genes in results for differential expression) to human genes 
+res_ZnDef_colon <- as.data.frame(res_ZnDef_colon)
+res_ZnDef_colon$ensembl_gene_id <- sub("\\..*", "", res_ZnDef_colon$genes)
+res_ZnDef_colon <- res_ZnDef_colon[, -1]
+res_ZnDef_colon <- res_ZnDef_colon[, c(ncol(res_ZnDef_colon), 1:(ncol(res_ZnDef_colon)-1))]
+res_ZnDef_colon <- merge(res_ZnDef_colon, t2g, by = "ensembl_gene_id", all = TRUE)
+res_ZnDef_colon <- res_ZnDef_colon[complete.cases(res_ZnDef_colon$log2FoldChange), ]
+res_ZnDef_colon <- res_ZnDef_colon[!duplicated(res_ZnDef_colon$external_gene_name), ]
+res_ZnDef_colon <- arrange(res_ZnDef_colon, log2FoldChange)
+columns_to_keep <- c("log2FoldChange", "pvalue", "description", "external_gene_name")
+res_ZnDef_colon <- res_ZnDef_colon[, columns_to_keep, drop = FALSE]
+res_ZnDef_colon_HUMAN <- res_ZnDef_colon
+res_ZnDef_colon_HUMAN <- res_ZnDef_colon_HUMAN %>%
+  rename(Mouse = external_gene_name) 
+res_ZnDef_colon_HUMAN <-  res_ZnDef_colon_HUMAN%>%
+  left_join(Mouse_Human, by = c("Mouse" = "Mouse")) 
+res_ZnDef_colon_HUMAN <- res_ZnDef_colon_HUMAN[complete.cases(res_ZnDef_colon_HUMAN$Human), ]
+columns_to_remove <- c("Genes", "EntrezGene.ID", "Mouse.MGI.ID", "X", "X.1")
+res_ZnDef_colon_HUMAN <- res_ZnDef_colon_HUMAN[, !colnames(res_ZnDef_colon_HUMAN) %in% columns_to_remove]
+res_ZnDef_colon_HUMAN <- res_ZnDef_colon_HUMAN[, c("Human", setdiff(names(res_ZnDef_colon_HUMAN), "Human"))]
+
+res_ZnDef_colon_HUMAN
+res_ZnDef_colon
+```
+#Counter for estimating the number of pseudogenes and predicted genes present in the dataset
+```{r}
+counter <- 0
+for (row in 1:nrow(res_ZnDef_colon)) {
+  # Check if "pseudogene" is present in the text column of the current row
+  if (grepl("predicted gene", res_ZnDef_colon$description[row], ignore.case = TRUE)) {
+    # If "pseudogene" is found, increment the counter
+    counter <- counter + 1
+  }
+}
+
+# Print the final count
+print(counter)
+```
+
+#Get list of AMY, MC1, ZNT, ZIP genes present in the differential expression results. I am using a dataframe that also includes non-significant results so that I can capture all the ZNT/ZIP genes
+```{r}
+
+
+options(width = 120)
+ZnDef_colon_Amylase <- res_ZnDef_colon_HUMAN[startsWith(res_ZnDef_colon_HUMAN$Human, "AMY"), ]
+ZnDef_colon_ZNT <- res_ZnDef_colon_HUMAN[startsWith(res_ZnDef_colon_HUMAN$Human, "SLC30"), ]
+ZnDef_colon_ZIP <- res_ZnDef_colon_HUMAN[startsWith(res_ZnDef_colon_HUMAN$Human, "SLC39"), ]
+MC1 <- c("NDUFS1", "NDUFS2", "NDUFS3", "NDUFS4", "NDUFS5", "NDUFS6", "NDUFS7", "NDUFS8",
+           "NDUFAB1", "NDUFAB2", "NDUFA1", "NDUFA2", "NDUFA3", "NDUFA4", "NDUFA5", "NDUFA6",
+           "NDUFA7", "NDUFA8", "NDUFA9", "NDUFA10", "NDUFA11", "NDUFA12", "NDUFA13", "NDUFAF1",
+           "NDUFAF2", "NDUFAF3", "NDUFAF4", "NDUFAF5", "NDUFAF6", "NDUFAF7", "NDUFAF8", "NDUFAF9",
+           "NDUFAF10", "MT-ND1", "MT-ND2", "MT-ND3", "MT-ND4", "MT-ND4L", "MT-ND5", "MT-ND6")
+ZnDef_colon_MC1 <- res_ZnDef_colon_HUMAN[res_ZnDef_colon_HUMAN$Human %in% MC1, ]
+ZnDef_colon_IFN <- res_ZnDef_colon_HUMAN[startsWith(res_ZnDef_colon_HUMAN$Human, "IFN"), ]
+
+
+ZnDef_colon_Amylase  
+ZnDef_colon_ZNT
+ZnDef_colon_ZIP
+ZnDef_colon_MC1
+ZnDef_colon_IFN
+
+write.csv(ZnDef_colon_Amylase, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/ZnDef_colon_Amylase.csv", row.names = FALSE)
+
+write.csv(ZnDef_colon_MC1, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/ZnDef_colon_MC1.csv", row.names = FALSE)
+
+write.csv(ZnDef_colon_ZIP, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/ZnDef_colon_ZIP.csv", row.names = FALSE)
+
+write.csv(ZnDef_colon_ZNT, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/ZnDef_colon_ZNT.csv", row.names = FALSE)
+
+write.csv(ZnDef_colon_IFN, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/ZnDef_colon_IFN.csv", row.names = FALSE)
+
+
+```
+
+
+
+
+
+#Clean up normalized data for input in xcell. Rest of the xcell data manipulating will be in the pseudo scRNAseq notebook
+```{r}
+ZnDef_colon_normalized  <- as.data.frame(ZnDef_colon_normalized )
+ZnDef_colon_normalized $genes <- rownames(ZnDef_colon_normalized )
+rownames(ZnDef_colon_normalized ) <- NULL
+ZnDef_colon_normalized  <- ZnDef_colon_normalized [, c("genes", names(ZnDef_colon_normalized )[-ncol(ZnDef_colon_normalized)])]
+ZnDef_colon_normalized$genes <- sub("\\..*", "", ZnDef_colon_normalized$genes)
+colnames(ZnDef_colon_normalized)[1] <- "ensembl_gene_id"
+ZnDef_colon_normalized <- merge(ZnDef_colon_normalized, t2g, by = "ensembl_gene_id", all = TRUE)
+
+columns_to_remove <- c("ensembl_gene_id", "ensembl_transcript_id", "description", "mgi_symbol")
+ZnDef_norm_clean <- ZnDef_colon_normalized
+ZnDef_norm_clean <- ZnDef_norm_clean[, !colnames(ZnDef_norm_clean) %in% columns_to_remove]
+ZnDef_norm_clean <- cbind(ZnDef_norm_clean[, ncol(ZnDef_norm_clean)], ZnDef_norm_clean[, -ncol(ZnDef_norm_clean)])
+colnames(ZnDef_norm_clean)[1] <- "Genes"
+write.csv(ZnDef_norm_clean, file = "/Users/savitasastry/Downloads/Zinc_Deficiency_SS/ZincDef_Experiment/ZnDef_colon_normalized.csv", row.names = FALSE)
+ZnDef_norm_clean
+```
+
+#Visualize differentially expressed genes using a volcano plot
+```{r, fig.width=10, fig.height=11}
+library(ggrepel)
+library(EnhancedVolcano)
+
+#ZINC DEFICIENT MICE VERSUS HEALTHY MICE CONTROLS ON CHOW DIET. Zn Deficiency is all dietary in this experiment 
+
+options(repr.plot.width = 10, repr.plot.height = 50)
+
+EnhancedVolcano(ZnDef_colon_sig_merged,
+    lab = ZnDef_colon_sig_merged$external_gene_name,
+    x = 'log2FoldChange',
+    y = 'pvalue',
+    labSize = 3.0,
+    title = 'Differential Expression of Colon Tissue Influenced by Zn Deficiency in Mice'
+    )
+```
+
